@@ -1,0 +1,49 @@
+name: nvdp
+description: "A new Flutter project."
+
+publish_to: 'none' 
+
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  http: ^1.4.0
+  provider: ^6.1.5
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+
+  uses-material-design: true
+  assets:
+    - assets/
+
+#----------------------------------------------------
+# CONFIGURACIÓN DE LA PANTALLA DE BIENVENIDA (SPLASH)
+#----------------------------------------------------
+flutter_native_splash:
+  # Color de fondo del splash screen (usaremos blanco)
+  color: "#FFFFFF"
+
+  # Ruta a tu logo (la que ya tenemos en assets)
+  image: assets/logo_nvdp.png
+
+  # Configuración específica para Android 12+
+  android_12:
+    color: "#FFFFFF"
+    image: assets/logo_nvdp.png
+
+  # Habilitar para iOS (no lo usarás en Windows, pero es bueno tenerlo para cuando lo pases a la Mac)
+  ios: true
