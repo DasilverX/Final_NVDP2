@@ -610,3 +610,11 @@ INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID) VALUES ('cpt.jones', 'pa
 
 
 COMMIT;
+
+ALTER TABLE Usuarios MODIFY (Password VARCHAR2(60));
+
+UPDATE Usuarios
+SET Password = '$2a$12$37xuRjBpXDpbnuZeWreFWO/sikjVtlKuwGOFkYstwhpT1pbik0onK'
+WHERE Nombre = 'admin';
+
+COMMIT;

@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcrypt');
 const oracledb = require('oracledb');
 const cors = require('cors');
 const { executeQuery, executeProcedure, getBarcoDetailsById } = require('./database');
@@ -67,15 +68,47 @@ app.get('/api/tripulantes', async (req, res) => {
 });
 
 // Endpoint para AÑADIR un tripulante (el que ya tenías)
-app.post('/api/tripulantes', async (req, res) => {
+// Reemplazar el endpoint de login completo
+app.post('/api/login', async (req, res) => {
     try {
-        const { barcoId, nombre, rol, pasaporte, nacionalidad } = req.body;
-        const plsql = `BEGIN ASIGNAR_TRIPULANTE_BARCO( p_barco_id => :barcoId, p_nombre => :nombre, p_rol => :rol, p_pasaporte => :pasaporte, p_nacionalidad => :nacionalidad); END;`;
-        const binds = { barcoId, nombre, rol, pasaporte, nacionalidad };
-        await executeProcedure(plsql, binds);
-        res.status(201).send({ message: 'Tripulante añadido exitosamente' });
+        const { nombre, password } = req.body;
+
+        // 1. Buscamos al usuario solo por su nombre
+        const query = `
+            SELECT u.UsuarioID, u.Nombre, u.Password, u.BarcoID, r.NombreRol
+            FROM Usuarios u
+            JOIN Roles r ON u.RolID = r.RolID
+            WHERE u.Nombre = :nombre
+        `;
+        // Usamos executeQuery con un array para los binds
+        const result = await executeQuery(query, [nombre]);
+
+        if (result.length === 0) {
+            // Si el usuario no existe, enviamos un error genérico para no dar pistas
+            return res.status(401).send({ message: 'Nombre de usuario o contraseña incorrectos.' });
+        }
+
+        const user = result[0];
+        
+        // 2. Comparamos la contraseña enviada con el hash de la BD de forma asíncrona
+        const passwordMatch = await bcrypt.compare(password, user.PASSWORD);
+
+        if (passwordMatch) {
+            // 3. Si la contraseña coincide, enviamos los datos del usuario (PERO NUNCA EL HASH)
+            const userData = {
+                usuarioId: user.USUARIOID,
+                nombre: user.NOMBRE,
+                rol: user.NOMBREROL,
+                barcoId: user.BARCOID
+            };
+            res.status(200).json(userData);
+        } else {
+            // Si la contraseña no coincide, enviamos el mismo error genérico
+            res.status(401).send({ message: 'Nombre de usuario o contraseña incorrectos.' });
+        }
     } catch (err) {
-        res.status(500).send({ message: 'Error al añadir el tripulante', error: err.message });
+        console.error("Error en /api/login:", err);
+        res.status(500).send({ message: 'Error en el servidor durante el login.', error: err.message });
     }
 });
 
@@ -212,6 +245,57 @@ app.get('/api/barcos/:id', async (req, res) => {
         res.json(data);
     } catch (err) {
         res.status(500).send({ message: 'Error al obtener los detalles del barco', error: err.message });
+    }
+});
+
+// Función para validar la fortaleza de la contraseña
+function validarPassword(password) {
+    if (!password || password.length < 8) {
+        return { isValid: false, message: 'La contraseña debe tener al menos 8 caracteres.' };
+    }
+    const tieneMayuscula = /[A-Z]/.test(password);
+    const tieneNumero = /[0-9]/.test(password);
+
+    if (!tieneMayuscula || !tieneNumero) {
+        return { isValid: false, message: 'La contraseña debe contener al menos una mayúscula y un número.' };
+    }
+    return { isValid: true };
+}
+
+
+// ***** NUEVO: Endpoint para CREAR un nuevo usuario con contraseña segura *****
+app.post('/api/usuarios', async (req, res) => {
+    try {
+        const { nombre, password, rolId, barcoId } = req.body;
+
+        // 1. Validar la contraseña
+        const validacion = validarPassword(password);
+        if (!validacion.isValid) {
+            return res.status(400).send({ message: validacion.message });
+        }
+
+        // 2. Encriptar la contraseña
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+
+        // 3. Insertar el nuevo usuario en la base de datos
+        const query = `
+            INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID)
+            VALUES (:nombre, :passwordHash, :rolId, :barcoId)
+        `;
+        const binds = { nombre, passwordHash, rolId, barcoId: barcoId || null };
+
+        await executeProcedure(query, binds);
+
+        res.status(201).send({ message: 'Usuario creado exitosamente.' });
+
+    } catch (err) {
+        // Manejar error de usuario duplicado (ORA-00001) u otros
+        if (err.errorNum === 1) {
+            return res.status(409).send({ message: 'El nombre de usuario ya existe.' });
+        }
+        console.error("Error en POST /api/usuarios:", err);
+        res.status(500).send({ message: 'Error al crear el usuario.', error: err.message });
     }
 });
 

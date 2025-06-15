@@ -248,7 +248,7 @@ INSERT INTO Roles (NombreRol) VALUES ('visitante');
 INSERT INTO Roles (NombreRol) VALUES ('capitan');
 
 -- Insertar usuarios de ejemplo
-INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID) VALUES ('admin', 'admin', 1, NULL);
+INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID) VALUES ('admin', '$2a$12$30ZWJDDUrmEDtR2a1leexe.YC6W54Z9.butFsna5Mm57tLhYc3s5.', 1, NULL);
 INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID) VALUES ('user', 'user', 2, NULL);
 INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID) VALUES ('cpt.jones', 'password123', 3, 1); -- Capitán del BarcoID 1
 
