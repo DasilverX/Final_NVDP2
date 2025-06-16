@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class EditTripulanteScreen extends StatefulWidget {
   // Este widget recibe los datos del tripulante que se va a editar
@@ -35,7 +36,7 @@ class _EditTripulanteScreenState extends State<EditTripulanteScreen> {
       });
 
       final tripulanteId = widget.tripulante['TRIPULACIONID'];
-      final url = 'http://localhost:3000/api/tripulantes/$tripulanteId';
+      final url = '$apiBaseUrl/api/tripulantes/$tripulanteId';
       
       try {
         final response = await http.put(

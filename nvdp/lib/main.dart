@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'config.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'login.dart';
@@ -84,7 +85,7 @@ class _EscalasScreenState extends State<EscalasScreen> {
   }
 
   Future<void> _fetchEscalas() async {
-    const url = 'http://localhost:3000/api/escalas';
+    const url = '$apiBaseUrl/api/escalas';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

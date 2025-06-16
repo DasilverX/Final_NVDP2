@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class BarcoDetalleScreen extends StatefulWidget {
   final int barcoId;
@@ -25,7 +26,7 @@ class _BarcoDetalleScreenState extends State<BarcoDetalleScreen> {
   }
 
   Future<void> _fetchBarcoDetalles() async {
-    final url = 'http://localhost:3000/api/barcos/${widget.barcoId}';
+    final url = '$apiBaseUrl/api/barcos/${widget.barcoId}';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

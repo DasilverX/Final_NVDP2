@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'main.dart'; // Importamos main para navegar a EscalasScreen
 import 'capitanes.dart';
+import 'config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = true;
       });
 
-      const url = 'http://localhost:3000/api/login';
+      const url = '$apiBaseUrl/api/login';
       try {
         final response = await http.post(
           Uri.parse(url),

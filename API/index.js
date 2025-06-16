@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
 const oracledb = require('oracledb');
@@ -447,6 +448,52 @@ app.post('/api/capitan/registrar-barco', async (req, res) => {
         });
     } catch (err) {
         res.status(500).send({ message: 'Error al registrar el barco', error: err.message });
+    }
+});
+
+// Importar la librería de IA de Google (al principio del archivo con los otros 'require')
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+// Inicializar el cliente de la IA con tu clave
+//const genAI = new GoogleGenerativeAI(process.env.AIzaSyDWyclTKvAJ2tUrsZ8U4t6XyduFNj7iJuY);
+const genAI = new GoogleGenerativeAI("AIzaSyDWyclTKvAJ2tUrsZ8U4t6XyduFNj7iJuY"); // <-- Pega tu clave aquí
+
+// --- ENDPOINT PARA ANÁLISIS CON IA ---
+app.post('/api/analisis-logistico', async (req, res) => {
+    try {
+        // 1. Obtenemos los datos de la simulación desde Flutter
+        const { tipoBarco, tipoCarga, servicios } = req.body;
+
+        // 2. Creamos el "Prompt": la pregunta detallada para la IA
+        const prompt = `
+            Actúa como un experto en logística del Canal de Panamá. 
+            Basado en los siguientes datos, proporciona un análisis breve y estimado del tiempo en el canal.
+
+            Datos del Barco:
+            - Tipo de Barco: ${tipoBarco}
+            - Tipo de Carga: ${tipoCarga}
+            - Servicios Requeridos en el puerto: ${servicios}
+
+            Análisis Requerido:
+            1. Un tiempo estimado (en horas) que podría tomar el tránsito y la recepción de los servicios.
+            2. Una breve descripción de 2 o 3 posibles desafíos o cuellos de botella para este tipo de operación.
+            3. Una recomendación logística clave.
+
+            Formatea tu respuesta de forma clara y profesional usando texto simple.
+        `;
+
+        // 3. Llamamos al modelo de IA de Google
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        // 4. Devolvemos la respuesta de la IA a la aplicación Flutter
+        res.status(200).json({ analisis: text });
+
+    } catch (err) {
+        console.error("Error en /api/analisis-logistico:", err);
+        res.status(500).send({ message: 'Error al generar el análisis de IA' });
     }
 });
 

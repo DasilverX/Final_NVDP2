@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class AddTripulanteScreen extends StatefulWidget {
   const AddTripulanteScreen({super.key});
@@ -25,7 +26,7 @@ class _AddTripulanteScreenState extends State<AddTripulanteScreen> {
         _isSaving = true;
       });
 
-      const url = 'http://localhost:3000/api/tripulantes';
+      const url = '$apiBaseUrl/api/tripulantes';
       try {
         final response = await http.post(
           Uri.parse(url),

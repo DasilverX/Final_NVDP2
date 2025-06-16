@@ -6,6 +6,7 @@ import 'package:nvdp/add_barco.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'add_barco.dart';
+import 'config.dart';
 
 class GestionBarcosScreen extends StatefulWidget {
   const GestionBarcosScreen({super.key});
@@ -44,7 +45,7 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
     setState(() => _isLoading = true);
 
     final url = Uri.parse(
-        'http://localhost:3000/api/barcos?page=$_currentPage&search=$_searchTerm');
+        '$apiBaseUrl/api/barcos?page=$_currentPage&search=$_searchTerm');
     try {
       final response = await http.get(url);
       if (mounted && response.statusCode == 200) {
@@ -68,7 +69,7 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
   }
 
   Future<void> _deleteBarco(int id) async {
-    final url = 'http://localhost:3000/api/barcos/$id';
+    final url = '$apiBaseUrl/api/barcos/$id';
     try {
       final response = await http.delete(Uri.parse(url));
       if (response.statusCode == 200) {

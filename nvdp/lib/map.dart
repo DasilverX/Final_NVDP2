@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class MapaScreen extends StatefulWidget {
   const MapaScreen({super.key});
@@ -22,7 +23,7 @@ class _MapaScreenState extends State<MapaScreen> {
   }
 
   Future<void> _fetchPuertos() async {
-    const url = 'http://localhost:3000/api/puertos';
+    const url = '$apiBaseUrl/api/puertos';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

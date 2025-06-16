@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class AnalisisScreen extends StatefulWidget {
   const AnalisisScreen({super.key});
@@ -22,10 +23,10 @@ class _AnalisisScreenState extends State<AnalisisScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
-        _analisisResult = null; // Limpiar resultado anterior
+        _analisisResult = null;
       });
 
-      const url = 'http://localhost:3000/api/analisis-logistico';
+      const url = '$apiBaseUrl/api/analisis-logistico';
       try {
         final response = await http.post(
           Uri.parse(url),
@@ -74,10 +75,7 @@ class _AnalisisScreenState extends State<AnalisisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Simulación de Análisis Logístico',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              Text('Simulación de Análisis Logístico', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),
               const Text('Introduce los datos para que la IA de Gemini genere un análisis estimado.'),
               const SizedBox(height: 24),

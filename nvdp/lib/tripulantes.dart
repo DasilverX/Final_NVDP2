@@ -5,7 +5,7 @@ import 'package:provider/provider.dart'; // ***** AÑADIDO *****
 import 'auth_service.dart'; // ***** AÑADIDO *****
 import 'add_tripulante.dart'; // ***** AÑADIDO (asegúrate que el nombre del archivo sea correcto) *****
 import 'edit_tripulante.dart';
-
+import 'config.dart';
 class TripulantesScreen extends StatefulWidget {
   const TripulantesScreen({super.key});
 
@@ -24,7 +24,7 @@ class _TripulantesScreenState extends State<TripulantesScreen> {
   }
 
   Future<void> _fetchTripulantes() async {
-    const url = 'http://localhost:3000/api/tripulantes';
+    const url = '$apiBaseUrl/api/tripulantes';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -48,7 +48,7 @@ class _TripulantesScreenState extends State<TripulantesScreen> {
   }
 
   Future<void> _deleteTripulante(int id) async {
-    final url = 'http://localhost:3000/api/tripulantes/$id';
+    final url = '$apiBaseUrl/api/tripulantes/$id';
     try {
       final response = await http.delete(Uri.parse(url));
 

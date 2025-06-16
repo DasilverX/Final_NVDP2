@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'login.dart';
+import 'config.dart';
 
 class CapitanDashboardScreen extends StatefulWidget {
   // 1. Añadimos las variables que la pantalla recibirá
@@ -33,7 +34,7 @@ class _CapitanDashboardScreenState extends State<CapitanDashboardScreen> {
 
   Future<void> _fetchPeticiones() async {
     // Usamos el widget.barcoId que recibimos para construir la URL
-    final url = 'http://localhost:3000/api/peticiones/barco/${widget.barcoId}';
+    final url = '$apiBaseUrl/api/peticiones/barco/${widget.barcoId}';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

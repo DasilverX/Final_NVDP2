@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class AddBarcoScreen extends StatefulWidget {
   // Hacemos que el barco sea opcional. Si viene, estamos editando.
@@ -52,7 +53,7 @@ class _AddBarcoScreenState extends State<AddBarcoScreen> {
   }
 
   Future<void> _fetchClientes() async {
-    const url = 'http://localhost:3000/api/clientes';
+    const url = '$apiBaseUrl/api/clientes';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -90,7 +91,7 @@ class _AddBarcoScreenState extends State<AddBarcoScreen> {
   }
 
   Future<void> _addBarco() async {
-    const url = 'http://localhost:3000/api/barcos';
+    const url = '$apiBaseUrl/api/barcos';
     try {
       final response = await http.post(
         Uri.parse(url),
@@ -124,7 +125,7 @@ class _AddBarcoScreenState extends State<AddBarcoScreen> {
 
   Future<void> _updateBarco() async {
     final barcoId = widget.barco!['BARCOID'];
-    final url = 'http://localhost:3000/api/barcos/$barcoId';
+    final url = '$apiBaseUrl/api/barcos/$barcoId';
     try {
       final response = await http.put(
         Uri.parse(url),

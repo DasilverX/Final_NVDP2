@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nvdp/capitanes.dart';
 import 'package:provider/provider.dart';
+import 'config.dart';
 import 'auth_service.dart';
 
 class RegistrarBarcoScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _RegistrarBarcoScreenState extends State<RegistrarBarcoScreen> {
   }
 
   Future<void> _fetchClientes() async {
-    const url = 'http://localhost:3000/api/clientes';
+    const url = '$apiBaseUrl/api/clientes';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -66,7 +67,7 @@ class _RegistrarBarcoScreenState extends State<RegistrarBarcoScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final capitanUsuarioId = authService.user!['usuarioId'];
 
-      const url = 'http://localhost:3000/api/capitan/registrar-barco';
+      const url = '$apiBaseUrl/api/capitan/registrar-barco';
       try {
         final response = await http.post(
           Uri.parse(url),
