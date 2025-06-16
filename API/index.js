@@ -299,6 +299,132 @@ app.post('/api/usuarios', async (req, res) => {
     }
 });
 
+// --- ENDPOINTS PARA CRUD DE BARCOS ---
+
+// GET para listar todos los barcos
+app.get('/api/barcos', async (req, res) => {
+    try {
+        // 1. Obtenemos los parámetros de la URL (o usamos valores por defecto)
+        const searchTerm = req.query.search || ''; // Término de búsqueda
+        const page = parseInt(req.query.page, 10) || 1; // Página actual
+        const limit = parseInt(req.query.limit, 10) || 10; // Resultados por página
+        const offset = (page - 1) * limit; // Calculamos el desfase
+
+        // Preparamos los binds para la consulta
+        const binds = {};
+        let whereClauses = [];
+
+        // 2. Construimos la cláusula WHERE si hay un término de búsqueda
+        if (searchTerm) {
+            whereClauses.push(`
+                (LOWER(b.Nombre) LIKE :searchTerm 
+                OR LOWER(b.NumeroIMO) LIKE :searchTerm 
+                OR LOWER(b.Tipo) LIKE :searchTerm
+                OR LOWER(b.Bandera) LIKE :searchTerm)
+            `);
+            binds.searchTerm = `%${searchTerm.toLowerCase()}%`;
+        }
+        
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        
+        // 3. Primera consulta: Contar el total de registros que coinciden con la búsqueda
+        const countQuery = `SELECT COUNT(*) AS total FROM Barco b ${whereSql}`;
+        const countResult = await executeQuery(countQuery, binds);
+        const totalItems = countResult[0].TOTAL;
+        const totalPages = Math.ceil(totalItems / limit);
+
+        // 4. Segunda consulta: Obtener los datos de la página actual
+        const dataQuery = `
+            SELECT b.BarcoID, b.Nombre, b.NumeroIMO, b.Tipo, b.Bandera, c.Nombre AS NombrePropietario, b.PropietarioID
+            FROM Barco b
+            JOIN Cliente c ON b.PropietarioID = c.ClienteID
+            ${whereSql}
+            ORDER BY b.Nombre
+            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+        `;
+        binds.offset = offset;
+        binds.limit = limit;
+        
+        const barcos = await executeQuery(dataQuery, binds);
+
+        // 5. Devolvemos una respuesta estructurada con los datos y la información de paginación
+        res.json({
+            totalItems,
+            totalPages,
+            currentPage: page,
+            barcos
+        });
+
+    } catch (err) {
+        console.error("Error en GET /api/barcos:", err);
+        res.status(500).send({ message: 'Error al obtener los barcos' });
+    }
+});
+
+// POST para crear un nuevo barco
+app.post('/api/barcos', async (req, res) => {
+    try {
+        const { nombre, numeroImo, tipo, bandera, propietarioId } = req.body;
+        const plsql = `BEGIN CREAR_BARCO(:nombre, :numeroImo, :tipo, :bandera, :propietarioId); END;`;
+        const binds = { nombre, numeroImo, tipo, bandera, propietarioId };
+        await executeProcedure(plsql, binds);
+        res.status(201).send({ message: 'Barco creado exitosamente.' });
+    } catch (err) {
+        // El error personalizado de la BD (ej. IMO duplicado) viene en err.message
+        res.status(500).send({ message: 'Error al crear el barco', error: err.message });
+    }
+});
+
+// PUT para actualizar un barco
+app.put('/api/barcos/:id', async (req, res) => {
+    try {
+        const barcoId = req.params.id;
+        const { nombre, tipo, bandera, propietarioId } = req.body;
+        const plsql = `BEGIN ACTUALIZAR_BARCO(:id, :nombre, :tipo, :bandera, :propietarioId); END;`;
+        const binds = { id: barcoId, nombre, tipo, bandera, propietarioId };
+        await executeProcedure(plsql, binds);
+        res.status(200).send({ message: `Barco con ID ${barcoId} actualizado.` });
+    } catch (err) {
+        res.status(500).send({ message: 'Error al actualizar el barco', error: err.message });
+    }
+});
+
+// DELETE para eliminar un barco
+app.delete('/api/barcos/:id', async (req, res) => {
+    try {
+        const barcoId = req.params.id;
+        const plsql = `BEGIN ELIMINAR_BARCO(:id); END;`;
+        const binds = { id: barcoId };
+        await executeProcedure(plsql, binds);
+        res.status(200).send({ message: `Barco con ID ${barcoId} eliminado.` });
+    } catch (err) {
+        res.status(400).send({ message: 'Error al eliminar el barco', error: err.message });
+    }
+});
+
+// --- ENDPOINT PARA CLIENTES ---
+app.get('/api/clientes', async (req, res) => {
+    try {
+        const query = 'SELECT ClienteID, Nombre FROM Cliente ORDER BY Nombre';
+        const clientes = await executeQuery(query);
+        res.json(clientes);
+    } catch (err) {
+        res.status(500).send({ message: 'Error al obtener los clientes' });
+    }
+});
+
+// --- ENDPOINT PARA MAPA ---
+app.get('/api/puertos', async (req, res) => {
+    try {
+        // Obtenemos solo los puertos que tengan coordenadas definidas
+        const query = 'SELECT PuertoID, Nombre, Latitud, Longitud FROM Puerto WHERE Latitud IS NOT NULL AND Longitud IS NOT NULL';
+        const puertos = await executeQuery(query);
+        res.json(puertos);
+    } catch (err) {
+        res.status(500).send({ message: 'Error al obtener los puertos' });
+    }
+});
+
 // Iniciar el servidor
 app.listen(port, () => {
     console.log(`Servidor NVDPA escuchando en http://localhost:${port}`);

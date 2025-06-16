@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nvdp/about.dart';
+import 'package:nvdp/map.dart';
+import 'gestion_barcos.dart';
 import 'package:nvdp/login.dart';
 import 'package:nvdp/tripulantes.dart';
 import 'package:provider/provider.dart';
@@ -50,6 +52,28 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (context) => const EscalasScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.directions_boat),
+            title: const Text('Gestión de Barcos'),
+            onTap: () {
+              Navigator.pop(context); // Cierra el menú
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const GestionBarcosScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined),
+            title: const Text('Mapa de Puertos'),
+            onTap: () {
+              Navigator.pop(context); // Cierra el menú
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const MapaScreen()),
               );
             },
           ),
