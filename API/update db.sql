@@ -222,6 +222,36 @@ JOIN Carga ca ON ep.EscalaPortuariaID = ca.EscalaPortuariaID
 --  [ Espacio para futuras actualizaciones de VISTAS ]
 -- =======================================================================================
 
+CREATE OR REPLACE PROCEDURE REGISTRAR_BARCO_Y_ASIGNAR_CAPITAN (
+    p_nombre            IN VARCHAR2,
+    p_numero_imo        IN VARCHAR2,
+    p_tipo              IN VARCHAR2,
+    p_bandera           IN VARCHAR2,
+    p_propietario_id    IN NUMBER,
+    p_capitan_usuario_id IN NUMBER
+)
+AS
+    v_nuevo_barco_id NUMBER;
+BEGIN
+    -- 1. Insertamos el nuevo barco y obtenemos su ID recién creado
+    INSERT INTO Barco (Nombre, NumeroIMO, Tipo, Bandera, PropietarioID)
+    VALUES (p_nombre, p_numero_imo, p_tipo, p_bandera, p_propietario_id)
+    RETURNING BarcoID INTO v_nuevo_barco_id;
+
+    -- 2. Actualizamos la tabla Usuarios para asignar el nuevo BarcoID al capitán
+    UPDATE Usuarios
+    SET BarcoID = v_nuevo_barco_id
+    WHERE UsuarioID = p_capitan_usuario_id;
+    
+    COMMIT;
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        RAISE_APPLICATION_ERROR(-20010, 'El número IMO ' || p_numero_imo || ' ya existe.');
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
 
 -- =======================================================================================
 -- SECCIÓN 3: CONFIGURACIÓN DE SEGURIDAD (Roles, Usuarios y Funcionalidad de Capitanes)
@@ -314,6 +344,85 @@ UPDATE Puerto SET Latitud = 51.95, Longitud = 4.48 WHERE Nombre = 'Puerto de Ró
 UPDATE Puerto SET Latitud = 1.28, Longitud = 103.85 WHERE Nombre = 'Puerto de Singapur';
 
 COMMIT;
+
+-- ========= SCRIPT PARA REINICIAR AL USUARIO 'cpt.smith' =========
+
+-- Parte 1: Borrado Seguro del Usuario y sus dependencias
+DECLARE
+    v_usuario_id NUMBER;
+BEGIN
+    -- Buscamos el ID del usuario. Si no existe, la excepción se encargará.
+    SELECT UsuarioID INTO v_usuario_id FROM Usuarios WHERE Nombre = 'cpt.smith';
+
+    -- Borramos registros en tablas hijas que puedan hacer referencia al usuario.
+    -- Esto previene errores de llaves foráneas.
+    DELETE FROM OperadorCapitan WHERE OperadorUsuarioID = v_usuario_id OR CapitanUsuarioID = v_usuario_id;
+    DELETE FROM Empleados WHERE UsuarioID = v_usuario_id;
+    DELETE FROM PeticionesServicio WHERE UsuarioID = v_usuario_id;
+    
+    -- Finalmente, borramos el usuario principal de la tabla Usuarios
+    DELETE FROM Usuarios WHERE UsuarioID = v_usuario_id;
+    
+    DBMS_OUTPUT.PUT_LINE('Usuario ''cpt.smith'' y sus dependencias han sido eliminados.');
+    
+EXCEPTION
+    -- Si el usuario no se encuentra, simplemente lo informamos y continuamos.
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('El usuario ''cpt.smith'' no existía. No se borró nada.');
+END;
+/
+
+
+-- Parte 2: Creación (o Re-creación) del Usuario con el comando MERGE
+MERGE INTO Usuarios u
+USING (SELECT 'cpt.smith' AS Nombre FROM dual) src
+ON (u.Nombre = src.Nombre)
+WHEN MATCHED THEN
+  UPDATE SET
+    u.Password = '$2a$12$yPcgg2rt52A.h9a0AMJypu3KVr7SWaApWSBMCDe6C5xelfpqXjcJG',
+    u.RolID = 3, -- Rol de Capitán
+    u.BarcoID = NULL -- Sin barco asignado
+WHEN NOT MATCHED THEN
+  INSERT (Nombre, Password, RolID, BarcoID)
+  VALUES ('cpt.smith', '$2a$12$yPcgg2rt52A.h9a0AMJypu3KVr7SWaApWSBMCDe6C5xelfpqXjcJG', 3, NULL);
+/
+
+COMMIT;
+
+-- Mensaje final de confirmación
+SELECT 'Usuario cpt.smith reiniciado correctamente. Listo para las pruebas.' AS ESTATUS FROM DUAL;
+
+
+-- ========= SCRIPT ALTERNATIVO PARA CREAR/ACTUALIZAR AL CAPITÁN DE PRUEBA =========
+
+BEGIN
+  -- Primero, intentamos actualizar el usuario por si ya existe
+  UPDATE Usuarios
+  SET
+    Password = '$2a$12$yPcgg2rt52A.h9a0AMJypu3KVr7SWaApWSBMCDe6C5xelfpqXjcJG',
+    RolID = 3,
+    BarcoID = NULL
+  WHERE
+    Nombre = 'cpt.smith';
+
+  -- Si la actualización no afectó a ninguna fila (SQL%NOTFOUND), significa que el usuario no existía
+  IF SQL%NOTFOUND THEN
+    -- Entonces, lo insertamos como un nuevo registro
+    INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID)
+    VALUES ('cpt.smith', '$2a$12$yPcgg2rt52A.h9a0AMJypu3KVr7SWaApWSBMCDe6C5xelfpqXjcJG', 3, NULL);
+    
+    DBMS_OUTPUT.PUT_LINE('Usuario ''cpt.smith'' creado exitosamente.');
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('Usuario ''cpt.smith'' ya existía y ha sido actualizado.');
+  END IF;
+
+END;
+/
+
+COMMIT;
+
+-- Mensaje final de confirmación
+SELECT 'Usuario cpt.smith reiniciado correctamente. Listo para las pruebas.' AS ESTATUS FROM DUAL;
 
 -- =======================================================================================
 -- SECCIÓN 5: PROCEDIMIENTOS ALMACENADOS (Lógica de Negocio)
@@ -492,6 +601,37 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20011, 'El barco con ID ' || p_barco_id || ' no existe.');
     END IF;
     COMMIT;
+END;
+/
+
+
+
+CREATE OR REPLACE PROCEDURE REGISTRAR_BARCO_Y_ASIGNAR_CAPITAN (
+    p_nombre            IN VARCHAR2,
+    p_numero_imo        IN VARCHAR2,
+    p_tipo              IN VARCHAR2,
+    p_bandera           IN VARCHAR2,
+    p_propietario_id    IN NUMBER,
+    p_capitan_usuario_id IN NUMBER,
+    p_nuevo_barco_id    OUT NUMBER -- ***** PARÁMETRO DE SALIDA AÑADIDO *****
+)
+AS
+BEGIN
+    INSERT INTO Barco (Nombre, NumeroIMO, Tipo, Bandera, PropietarioID)
+    VALUES (p_nombre, p_numero_imo, p_tipo, p_bandera, p_propietario_id)
+    RETURNING BarcoID INTO p_nuevo_barco_id; -- Guardamos el ID en el parámetro de salida
+
+    UPDATE Usuarios
+    SET BarcoID = p_nuevo_barco_id
+    WHERE UsuarioID = p_capitan_usuario_id;
+    
+    COMMIT;
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        RAISE_APPLICATION_ERROR(-20010, 'El número IMO ' || p_numero_imo || ' ya existe.');
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
 END;
 /
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:nvdp/registro_barco.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'main.dart'; // Importamos main para navegar a EscalasScreen
@@ -53,15 +54,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
           // ***** LÓGICA DE REDIRECCIÓN POR ROL *****
           if (userData['rol'] == 'capitan') {
-            // Si es capitán, vamos a su dashboard
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => CapitanDashboardScreen(
-                  barcoId: userData['barcoId'],
-                  nombreCapitan: userData['nombre'],
+            // Si es capitán y su barco es nulo, vamos a la pantalla de registro.
+            if (userData['barcoId'] == null) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const RegistrarBarcoScreen(),
                 ),
-              ),
-            );
+              );
+            } else {
+              // Si es capitán CON barco, vamos a su dashboard normal.
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => CapitanDashboardScreen(
+                    // <-- 'const' ELIMINADO
+                    barcoId: userData['barcoId'],
+                    nombreCapitan: userData['nombre'],
+                  ),
+                ),
+              );
+            }
           } else {
             // Si es admin o visitante, vamos a la pantalla principal de siempre
             Navigator.of(context).pushReplacement(

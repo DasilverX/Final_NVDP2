@@ -11,11 +11,23 @@ class AuthService with ChangeNotifier {
 
   void login(Map<String, dynamic> userData) {
     _user = userData;
-    notifyListeners(); // Notificar a los widgets que el estado cambió
+    notifyListeners();
   }
 
   void logout() {
     _user = null;
     notifyListeners();
+  }
+
+  // ***** NUEVA FUNCIÓN AÑADIDA AQUÍ *****
+  void updateUserBarcoId(int barcoId) {
+    if (_user != null) {
+      // Creamos una nueva copia del mapa y actualizamos el barcoId
+      final newUserMap = Map<String, dynamic>.from(_user!);
+      newUserMap['barcoId'] = barcoId;
+      _user = newUserMap;
+      
+      notifyListeners(); // Notificamos a la app del cambio
+    }
   }
 }

@@ -425,6 +425,31 @@ app.get('/api/puertos', async (req, res) => {
     }
 });
 
+// Endpoint específico para que un capitán registre su barco
+app.post('/api/capitan/registrar-barco', async (req, res) => {
+    try {
+        const { nombre, numeroImo, tipo, bandera, propietarioId, capitanUsuarioId } = req.body;
+
+        const plsql = `BEGIN REGISTRAR_BARCO_Y_ASIGNAR_CAPITAN(:nombre, :numeroImo, :tipo, :bandera, :propietarioId, :capitanUsuarioId, :nuevoBarcoId); END;`;
+        
+        const binds = {
+            nombre, numeroImo, tipo, bandera, propietarioId, capitanUsuarioId,
+            // Definimos el parámetro de salida
+            nuevoBarcoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+        };
+        
+        const result = await executeProcedure(plsql, binds);
+
+        // Devolvemos el ID del nuevo barco en la respuesta
+        res.status(201).send({ 
+            message: 'Barco registrado y asignado exitosamente.',
+            nuevoBarcoId: result.outBinds.nuevoBarcoId[0] 
+        });
+    } catch (err) {
+        res.status(500).send({ message: 'Error al registrar el barco', error: err.message });
+    }
+});
+
 // Iniciar el servidor
 app.listen(port, () => {
     console.log(`Servidor NVDPA escuchando en http://localhost:${port}`);
