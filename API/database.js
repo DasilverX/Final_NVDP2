@@ -3,10 +3,12 @@ const oracledb = require('oracledb');
 
 // Configuración de la conexión a tu base de datos Oracle XE local
 const dbConfig = {
-  user: 'fort', // Reemplaza si tu usuario es diferente (ej. 'FORT')
-  password: 'develop', // La contraseña que definiste para tu usuario
-  connectString: 'localhost/XEPDB1' // Este es el valor por defecto para Oracle XE.
-                                    // Podría ser 'localhost/XE' si tienes una versión más antigua.
+  user: 'fort', // O el nombre de tu usuario, ej: 'FORT'
+  
+  // ***** ASEGÚRATE DE QUE ESTA CONTRASEÑA SEA LA CORRECTA *****
+  password: 'nvdp1', 
+  
+  connectString: 'localhost/XEPDB1' // O 'XE' si usas una versión antigua
 };
 
 // Función reutilizable para ejecutar consultas

@@ -6,6 +6,7 @@ import 'package:nvdp/login.dart';
 import 'package:nvdp/tripulantes.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
+import 'analisis.dart';
 import 'main.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -74,6 +75,16 @@ class AppDrawer extends StatelessWidget {
               Navigator.pop(context); // Cierra el menú
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => const MapaScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.psychology_outlined),
+            title: const Text('Análisis Logístico (IA)'),
+            onTap: () {
+              Navigator.pop(context); // Cierra el menú
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const AnalisisScreen()),
               );
             },
           ),
