@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:nvdp/login.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
-import 'login.dart';
 
 class CapitanDashboardScreen extends StatefulWidget {
   final int barcoId;
