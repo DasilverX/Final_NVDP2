@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'config.dart';
 
 class AuthService with ChangeNotifier {
   Map<String, dynamic>? _user;

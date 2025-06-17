@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:nvdp/add_barco.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
-import 'add_barco.dart';
 import 'config.dart';
 
 class GestionBarcosScreen extends StatefulWidget {
@@ -285,8 +284,8 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
                   _fetchBarcos(isNewSearch: true);
                 }
               },
-              child: const Icon(Icons.add),
               tooltip: 'Añadir Barco',
+              child: const Icon(Icons.add),
             )
           : null,
     );
