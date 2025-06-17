@@ -25,6 +25,13 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# CONFIGURACIÓN PARA LOS ICONOS DE LA APP
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo_nvdp.png"
 
 flutter:
 
