@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'analisis.dart';
 import 'main.dart';
-import 'config.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});

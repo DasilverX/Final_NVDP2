@@ -285,8 +285,8 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
                   _fetchBarcos(isNewSearch: true);
                 }
               },
-              child: const Icon(Icons.add),
               tooltip: 'Añadir Barco',
+              child: const Icon(Icons.add),
             )
           : null,
     );
