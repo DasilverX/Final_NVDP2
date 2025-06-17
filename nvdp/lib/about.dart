@@ -42,9 +42,8 @@ class AboutScreen extends StatelessWidget {
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(height: 4),
-              // ***** ¡NO OLVIDES PONER TU NOMBRE AQUÍ! *****
               const Text(
-                'Dasilva José',
+                'El mas bello',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
