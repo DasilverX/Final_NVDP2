@@ -6,7 +6,7 @@ const cors = require('cors');
 const { executeQuery, executeProcedure, getBarcoDetailsById } = require('./database');
 
 const app = express();
-const port = process.env.PORT || 3000;
+
 
 app.use(cors());
 app.use(express.json());
@@ -496,6 +496,9 @@ app.post('/api/analisis-logistico', async (req, res) => {
         res.status(500).send({ message: 'Error al generar el análisis de IA' });
     }
 });
+
+
+const port = process.env.PORT || 3000;
 
 // Iniciar el servidor
 app.listen(port, () => {
