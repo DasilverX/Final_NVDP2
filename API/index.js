@@ -6,7 +6,7 @@ const cors = require('cors');
 const { executeQuery, executeProcedure, getBarcoDetailsById } = require('./database');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -499,5 +499,5 @@ app.post('/api/analisis-logistico', async (req, res) => {
 
 // Iniciar el servidor
 app.listen(port, () => {
-    console.log(`Servidor NVDPA escuchando en http://localhost:${port}`);
+  console.log(`Servidor NVDPA escuchando en el puerto ${port}`);
 });
