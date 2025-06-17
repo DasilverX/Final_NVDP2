@@ -746,3 +746,6 @@ SELECT * FROM Tripulacion WHERE BarcoID = 26;
 -- =======================================================================================
 --  [ Espacio para futuros SCRIPTS DE PRUEBA ]
 -- =======================================================================================
+
+
+SELECT EscalaPortuariaID, NombrePuerto FROM V_ESCALA_DETALLE WHERE BarcoID = 1;
