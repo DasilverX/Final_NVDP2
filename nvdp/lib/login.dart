@@ -103,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/logo.png', height: 120, errorBuilder: (c, e, s) => const Icon(Icons.directions_boat, size: 120)),
+                Image.asset('assets/logo_nvdp.png', height: 120, errorBuilder: (c, e, s) => const Icon(Icons.directions_boat, size: 120)),
                 const SizedBox(height: 40),
                 TextFormField(
                   controller: _nombreController,
