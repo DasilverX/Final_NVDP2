@@ -264,39 +264,30 @@ function validarPassword(password) {
 }
 
 
-// ***** NUEVO: Endpoint para CREAR un nuevo usuario con contraseña segura *****
-app.post('/api/usuarios', async (req, res) => {
+// GET para listar todos los usuarios y sus roles
+app.get('/api/usuarios', async (req, res) => {
     try {
-        const { nombre, password, rolId, barcoId } = req.body;
-
-        // 1. Validar la contraseña
-        const validacion = validarPassword(password);
-        if (!validacion.isValid) {
-            return res.status(400).send({ message: validacion.message });
-        }
-
-        // 2. Encriptar la contraseña
-        const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-
-        // 3. Insertar el nuevo usuario en la base de datos
         const query = `
-            INSERT INTO Usuarios (Nombre, Password, RolID, BarcoID)
-            VALUES (:nombre, :passwordHash, :rolId, :barcoId)
+            SELECT u.UsuarioID, u.Nombre, r.NombreRol
+            FROM Usuarios u
+            JOIN Roles r ON u.RolID = r.RolID
+            ORDER BY u.UsuarioID
         `;
-        const binds = { nombre, passwordHash, rolId, barcoId: barcoId || null };
-
-        await executeProcedure(query, binds);
-
-        res.status(201).send({ message: 'Usuario creado exitosamente.' });
-
+        const usuarios = await executeQuery(query);
+        res.json(usuarios);
     } catch (err) {
-        // Manejar error de usuario duplicado (ORA-00001) u otros
-        if (err.errorNum === 1) {
-            return res.status(409).send({ message: 'El nombre de usuario ya existe.' });
-        }
-        console.error("Error en POST /api/usuarios:", err);
-        res.status(500).send({ message: 'Error al crear el usuario.', error: err.message });
+        res.status(500).send({ message: 'Error al obtener los usuarios' });
+    }
+});
+
+// GET para listar todos los roles disponibles (para el formulario)
+app.get('/api/roles', async (req, res) => {
+    try {
+        const query = 'SELECT RolID, NombreRol FROM Roles ORDER BY RolID';
+        const roles = await executeQuery(query);
+        res.json(roles);
+    } catch (err) {
+        res.status(500).send({ message: 'Error al obtener los roles' });
     }
 });
 
