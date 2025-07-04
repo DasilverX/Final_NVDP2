@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'main.dart'; // Importa EscalasScreen
 import 'capitanes.dart'; // Importa CapitanDashboardScreen
-import 'add_barco.dart'; // Importa la pantalla de registro
+// Importa la pantalla de registro
 import 'config.dart'; // Importa la URL del API
 import 'package:http/http.dart' as http; // Importa el paquete http
 import 'dart:convert'; // Importa las herramientas de JSON
