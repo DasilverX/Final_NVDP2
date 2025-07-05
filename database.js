@@ -1,116 +1,74 @@
-// Importar el driver de Oracle
 const oracledb = require('oracledb');
 
-// Configuración de la conexión a tu base de datos Oracle XE local
-const dbConfig = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  connectString: process.env.DB_CONNECT_STRING
-};
+// Lista de configuraciones de conexión, en orden de prioridad
+const dbConfigs = [
+    { // Conexión Primaria (Producción)
+        poolAlias: 'prod',
+        user: process.env.DB_USER_PROD,
+        password: process.env.DB_PASSWORD_PROD,
+        connectString: process.env.DB_CONNECT_STRING_PROD
+    },
+    { // Conexión Secundaria (Contingencia)
+        poolAlias: 'cont',
+        user: process.env.DB_USER_CONT,
+        password: process.env.DB_PASSWORD_CONT,
+        connectString: process.env.DB_CONNECT_STRING_CONT
+    }
+];
 
-// Función reutilizable para ejecutar consultas
+// Nueva función "inteligente" para obtener una conexión
+async function getConnection() {
+    for (const config of dbConfigs) {
+        try {
+            // Intenta obtener una conexión del pool. Si no existe, lo crea.
+            // Si la conexión falla, saltará al bloque CATCH.
+            const connection = await oracledb.getConnection(config.poolAlias);
+            console.log(`>>> Conexión exitosa con la base de datos: ${config.poolAlias}`);
+            return connection;
+        } catch (err) {
+            // Si la conexión falla, lo registra y prueba con la siguiente de la lista.
+            console.error(`!!! Fallo al conectar con la DB [${config.poolAlias}]. Intentando con la siguiente...`);
+            // Intenta crear el pool si no existe, para la primera conexión.
+            try {
+                await oracledb.createPool(config);
+                const connection = await oracledb.getConnection(config.poolAlias);
+                console.log(`>>> Pool creado y conexión exitosa con la base de datos: ${config.poolAlias}`);
+                return connection;
+            } catch (poolErr) {
+                 console.error(`!!! Fallo al crear pool para [${config.poolAlias}]: ${poolErr.message}`);
+            }
+        }
+    }
+    // Si ninguna conexión de la lista funciona, lanza un error final.
+    throw new Error('No se pudo establecer conexión con ninguna de las bases de datos disponibles.');
+}
+
+// Adaptamos nuestras funciones para usar la nueva lógica de conexión
 async function executeQuery(query, binds = []) {
-  let connection;
-  try {
-    // Obtener una conexión de la base de datos
-    connection = await oracledb.getConnection(dbConfig);
-    
-    // Ejecutar la consulta
-    const result = await connection.execute(query, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
-    
-    // Devolver las filas del resultado
-    return result.rows;
-
-  } catch (err) {
-    console.error(err);
-    throw err; // Re-lanzar el error para que el llamador lo maneje
-  } finally {
-    if (connection) {
-      try {
-        // Cerrar la conexión para devolverla al pool
-        await connection.close();
-      } catch (err) {
-        console.error(err);
-      }
+    let connection;
+    try {
+        connection = await getConnection(); // Usa la nueva función inteligente
+        const result = await connection.execute(query, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        return result.rows;
+    } finally {
+        if (connection) {
+            try { await connection.close(); } catch (e) { console.error(e); }
+        }
     }
-  }
 }
 
-// Exportar la función para que otros archivos puedan usarla
-module.exports = { executeQuery };
-
-// ... (código existente de executeQuery) ...
-
-// NUEVA FUNCIÓN: Para ejecutar procedimientos o DML (INSERT, UPDATE, DELETE)
 async function executeProcedure(plsql, binds = {}) {
-  let connection;
-  try {
-    connection = await oracledb.getConnection(dbConfig);
-    const result = await connection.execute(plsql, binds, { autoCommit: true }); // autoCommit guarda los cambios inmediatamente
-    return result;
-  } catch (err) {
-    console.error(err);
-    throw err;
-  } finally {
-    if (connection) {
-      try {
-        await connection.close();
-      } catch (err) {
-        console.error(err);
-      }
+    let connection;
+    try {
+        connection = await getConnection(); // Usa la nueva función inteligente
+        const result = await connection.execute(plsql, binds, { autoCommit: true });
+        return result;
+    } finally {
+        if (connection) {
+            try { await connection.close(); } catch (e) { console.error(e); }
+        }
     }
-  }
 }
 
-// NUEVA FUNCIÓN: Específica para obtener los detalles del barco con sus cursores
-async function getBarcoDetailsById(barcoId) {
-  let connection;
-  try {
-    connection = await oracledb.getConnection(dbConfig);
-    const plsql = `BEGIN GET_BARCO_DETALLES(p_barco_id => :id, c_detalles => :c_detalles, c_tripulacion => :c_tripulacion, c_historial_escalas => :c_historial_escalas); END;`;
-    const binds = {
-      id: barcoId,
-      c_detalles: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT },
-      c_tripulacion: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT },
-      c_historial_escalas: { type: oracledb.CURSOR, dir: oracledb.BIND_OUT }
-    };
-
-    const result = await connection.execute(plsql, binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
-
-    const detallesCursor = result.outBinds.c_detalles;
-    const tripulacionCursor = result.outBinds.c_tripulacion;
-    const escalasCursor = result.outBinds.c_historial_escalas;
-
-    const detalles = await detallesCursor.getRows();
-    const tripulacion = await tripulacionCursor.getRows();
-    const historial_escalas = await escalasCursor.getRows();
-
-    // Importante: Cerramos los cursores aquí
-    await detallesCursor.close();
-    await tripulacionCursor.close();
-    await escalasCursor.close();
-
-    // Ensamblamos la respuesta
-    return {
-      detalles: detalles.length > 0 ? detalles[0] : null,
-      tripulacion: tripulacion,
-      historial_escalas: historial_escalas
-    };
-
-  } catch (err) {
-    console.error(err);
-    throw err;
-  } finally {
-    if (connection) {
-      try {
-        // Y cerramos la conexión solo al final de todo el proceso
-        await connection.close();
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }
-}
-
-// Actualiza la línea de module.exports al final del archivo
-module.exports = { executeQuery, executeProcedure, getBarcoDetailsById };
+// No olvides exportar las funciones
+module.exports = { executeQuery, executeProcedure };
