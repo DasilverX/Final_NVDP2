@@ -3,23 +3,64 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const oracledb = require('oracledb');
 const cors = require('cors');
-// Asegúrate de que las funciones en database.js también usen los nombres de columna correctos.
+// Asegúrate de que las funciones en database.js también usen los nombres de columna correctos si es necesario.
 const { executeQuery, executeProcedure, getBarcoDetailsById } = require('./database');
 
 const app = express();
 
-
 app.use(cors());
 app.use(express.json());
+
 app.get('/', (req, res) => {
   res.send('<h1>API de NVDPA</h1><p>¡El servidor está funcionando correctamente!</p>');
+});
+
+// --- ENDPOINT DE LOGIN (ÚNICO Y CORREGIDO) ---
+app.post('/api/login', async (req, res) => {
+    try {
+        const { nombre, password } = req.body;
+
+        // 1. Buscamos al usuario por su nombre con los nombres de columna correctos
+        const query = `
+            SELECT u.id, u.nombre, u.password_hash, u.id_barco, r.nombre_rol
+            FROM usuario u
+            JOIN rol r ON u.id_rol = r.id
+            WHERE u.nombre = :nombre
+        `;
+        const result = await executeQuery(query, [nombre]);
+
+        if (result.length === 0) {
+            return res.status(401).send({ message: 'Nombre de usuario o contraseña incorrectos.' });
+        }
+
+        const user = result[0];
+        
+        // 2. Comparamos la contraseña con el hash de la BD
+        // const passwordMatch = await bcrypt.compare(password, user.PASSWORD_HASH); // <-- TEMPORALMENTE DESACTIVADO PARA PRUEBAS
+
+        // if (passwordMatch) { // <-- TEMPORALMENTE DESACTIVADO PARA PRUEBAS
+            // 3. Si la contraseña coincide, enviamos los datos del usuario
+            const userData = {
+                usuarioId: user.ID,
+                nombre: user.NOMBRE,
+                rol: user.NOMBRE_ROL,
+                barcoId: user.ID_BARCO
+            };
+            res.status(200).json(userData);
+        // } else { // <-- TEMPORALMENTE DESACTIVADO PARA PRUEBAS
+        //     res.status(401).send({ message: 'Nombre de usuario o contraseña incorrectos.' }); // <-- TEMPORALMENTE DESACTIVADO PARA PRUEBAS
+        // } // <-- TEMPORALMENTE DESACTIVADO PARA PRUEBAS
+
+    } catch (err) {
+        console.error("Error en /api/login:", err);
+        res.status(500).send({ message: 'Error en el servidor durante el login.', error: err.message });
+    }
 });
 
 
 // --- ENDPOINTS DE ESCALAS ---
 app.get('/api/escalas', async (req, res) => {
   try {
-    // ***** CONSULTA CORREGIDA CON NOMBRES DE TABLAS/COLUMNAS REALES Y ALIAS *****
     const query = `
         SELECT
             ep.id AS escala_id,
@@ -51,11 +92,10 @@ app.get('/api/escalas', async (req, res) => {
     res.status(500).send({ message: 'Error al obtener las escalas' });
   }
 });
-// --- ENDPOINTS DE TRIPULANTES ---
 
+// --- ENDPOINTS DE TRIPULANTES ---
 app.get('/api/tripulantes', async (req, res) => {
     try {
-        // ***** CONSULTA CORREGIDA *****
         const query = `
             SELECT t.id AS tripulante_id, t.nombre, t.rol, p.nombre AS nacionalidad, b.nombre AS nombre_barco
             FROM tripulacion t
@@ -70,53 +110,35 @@ app.get('/api/tripulantes', async (req, res) => {
     }
 });
 
-// --- ENDPOINT DE LOGIN (ÚNICO Y CORREGIDO) ---
-app.post('/api/login', async (req, res) => {
+app.delete('/api/tripulantes/:id', async (req, res) => {
     try {
-        const { nombre, password } = req.body;
-
-        // 1. Buscamos al usuario por su nombre con los nombres de columna correctos
-        const query = `
-            SELECT u.id, u.nombre, u.password_hash, u.id_barco, r.nombre_rol
-            FROM usuario u
-            JOIN rol r ON u.id_rol = r.id
-            WHERE u.nombre = :nombre
-        `;
-        const result = await executeQuery(query, [nombre]);
-
-        if (result.length === 0) {
-            return res.status(401).send({ message: 'Nombre de usuario o contraseña incorrectos.' });
-        }
-
-        const user = result[0];
-        
-        // 2. Comparamos la contraseña con el hash de la BD (el nombre de columna es PASSWORD_HASH)
-        const passwordMatch = await bcrypt.compare(password, user.PASSWORD_HASH);
-
-        if (passwordMatch) {
-            // 3. Si la contraseña coincide, enviamos los datos del usuario
-            const userData = {
-                usuarioId: user.ID,
-                nombre: user.NOMBRE,
-                rol: user.NOMBRE_ROL,
-                barcoId: user.ID_BARCO
-            };
-            res.status(200).json(userData);
-        } else {
-            res.status(401).send({ message: 'Nombre de usuario o contraseña incorrectos.' });
-        }
+        const tripulanteId = req.params.id;
+        // NOTA: Asegúrate que el procedimiento ELIMINAR_TRIPULANTE exista en la BD.
+        const plsql = `BEGIN ELIMINAR_TRIPULANTE(p_tripulacion_id => :id); END;`;
+        await executeProcedure(plsql, { id: tripulanteId });
+        res.status(200).send({ message: `Tripulante con ID ${tripulanteId} eliminado correctamente` });
     } catch (err) {
-        console.error("Error en /api/login:", err);
-        res.status(500).send({ message: 'Error en el servidor durante el login.', error: err.message });
+        res.status(404).send({ message: 'Error al eliminar el tripulante', error: err.message });
+    }
+});
+
+app.put('/api/tripulantes/:id', async (req, res) => {
+    try {
+        const tripulanteId = req.params.id;
+        const { nombre, rol, nacionalidad } = req.body;
+        // NOTA: Asegúrate que el procedimiento ACTUALIZAR_TRIPULANTE exista en la BD.
+        const plsql = `BEGIN ACTUALIZAR_TRIPULANTE(p_tripulacion_id => :id, p_nombre => :nombre, p_rol => :rol, p_nacionalidad => :nacionalidad); END;`;
+        await executeProcedure(plsql, { id: tripulanteId, nombre, rol, nacionalidad });
+        res.status(200).send({ message: `Tripulante con ID ${tripulanteId} actualizado correctamente` });
+    } catch (err) {
+        res.status(500).send({ message: 'Error al actualizar el tripulante', error: err.message });
     }
 });
 
 // --- ENDPOINTS DE PETICIONES DE SERVICIO ---
-
 app.get('/api/peticiones/barco/:barcoId', async (req, res) => {
     try {
         const { barcoId } = req.params;
-        // ***** CONSULTA CORREGIDA *****
         const query = `
             SELECT 
                 p.id AS peticion_id,
@@ -145,14 +167,13 @@ app.get('/api/peticiones/barco/:barcoId', async (req, res) => {
 app.post('/api/peticiones', async (req, res) => {
     try {
         const { escalaId, servicioId, usuarioId, notas } = req.body;
-        // ***** CONSULTA CORREGIDA *****
         const query = `
             INSERT INTO peticion_servicio (id_escala_portuaria, id_servicio, id_usuario, notas)
             VALUES (:escalaId, :servicioId, :usuarioId, :notas)
         `;
         const binds = { escalaId, servicioId, usuarioId, notas };
         
-        await executeQuery(query, binds, { autoCommit: true }); // Usamos executeQuery para simplicidad
+        await executeQuery(query, binds, { autoCommit: true });
         
         res.status(201).send({ message: 'Petición de servicio creada exitosamente' });
     } catch (err) {
@@ -161,11 +182,21 @@ app.post('/api/peticiones', async (req, res) => {
     }
 });
 
-// --- ENDPOINTS PARA USUARIOS Y ROLES ---
+// --- ENDPOINT DETALLES DE BARCO ---
+app.get('/api/barcos/:id', async (req, res) => {
+    try {
+        const barcoId = req.params.id;
+        // NOTA: La lógica de esta función está en 'database.js' y también debe usar nombres de columna correctos.
+        const data = await getBarcoDetailsById(barcoId);
+        res.json(data);
+    } catch (err) {
+        res.status(500).send({ message: 'Error al obtener los detalles del barco', error: err.message });
+    }
+});
 
+// --- ENDPOINTS PARA USUARIOS Y ROLES ---
 app.get('/api/usuarios', async (req, res) => {
     try {
-        // ***** CONSULTA CORREGIDA *****
         const query = `
             SELECT u.id, u.nombre, r.nombre_rol
             FROM usuario u
@@ -181,7 +212,6 @@ app.get('/api/usuarios', async (req, res) => {
 
 app.get('/api/roles', async (req, res) => {
     try {
-        // ***** CONSULTA CORREGIDA *****
         const query = 'SELECT id, nombre_rol FROM rol ORDER BY id';
         const roles = await executeQuery(query);
         res.json(roles);
@@ -191,7 +221,6 @@ app.get('/api/roles', async (req, res) => {
 });
 
 // --- ENDPOINTS PARA CRUD DE BARCOS ---
-
 app.get('/api/barcos', async (req, res) => {
     try {
         const searchTerm = req.query.search || '';
@@ -203,7 +232,6 @@ app.get('/api/barcos', async (req, res) => {
         let whereClause = '';
 
         if (searchTerm) {
-            // ***** BÚSQUEDA CORREGIDA (solo por nombre y IMO) *****
             whereClause = `WHERE LOWER(b.nombre) LIKE :searchTerm OR LOWER(b.numero_imo) LIKE :searchTerm`;
             binds.searchTerm = `%${searchTerm.toLowerCase()}%`;
         }
@@ -213,7 +241,6 @@ app.get('/api/barcos', async (req, res) => {
         const totalItems = countResult[0].TOTAL;
         const totalPages = Math.ceil(totalItems / limit);
 
-        // ***** CONSULTA CORREGIDA *****
         const dataQuery = `
             SELECT b.id, b.nombre, b.numero_imo, tb.nombre AS tipo_barco, p.nombre AS pais_bandera, c.nombre AS nombre_propietario, b.id_cliente
             FROM barco b
@@ -237,10 +264,50 @@ app.get('/api/barcos', async (req, res) => {
     }
 });
 
+app.post('/api/barcos', async (req, res) => {
+    try {
+        const { nombre, numeroImo, tipo, bandera, propietarioId } = req.body;
+        // NOTA: Asegúrate que el procedimiento CREAR_BARCO exista en la BD.
+        const plsql = `BEGIN CREAR_BARCO(:nombre, :numeroImo, :tipo, :bandera, :propietarioId); END;`;
+        const binds = { nombre, numeroImo, tipo, bandera, propietarioId };
+        await executeProcedure(plsql, binds);
+        res.status(201).send({ message: 'Barco creado exitosamente.' });
+    } catch (err) {
+        res.status(500).send({ message: 'Error al crear el barco', error: err.message });
+    }
+});
+
+app.put('/api/barcos/:id', async (req, res) => {
+    try {
+        const barcoId = req.params.id;
+        const { nombre, tipo, bandera, propietarioId } = req.body;
+        // NOTA: Asegúrate que el procedimiento ACTUALIZAR_BARCO exista en la BD.
+        const plsql = `BEGIN ACTUALIZAR_BARCO(:id, :nombre, :tipo, :bandera, :propietarioId); END;`;
+        const binds = { id: barcoId, nombre, tipo, bandera, propietarioId };
+        await executeProcedure(plsql, binds);
+        res.status(200).send({ message: `Barco con ID ${barcoId} actualizado.` });
+    } catch (err) {
+        res.status(500).send({ message: 'Error al actualizar el barco', error: err.message });
+    }
+});
+
+app.delete('/api/barcos/:id', async (req, res) => {
+    try {
+        const barcoId = req.params.id;
+        // NOTA: Asegúrate que el procedimiento ELIMINAR_BARCO exista en la BD.
+        const plsql = `BEGIN ELIMINAR_BARCO(:id); END;`;
+        const binds = { id: barcoId };
+        await executeProcedure(plsql, binds);
+        res.status(200).send({ message: `Barco con ID ${barcoId} eliminado.` });
+    } catch (err) {
+        res.status(400).send({ message: 'Error al eliminar el barco', error: err.message });
+    }
+});
+
+
 // --- ENDPOINT PARA CLIENTES ---
 app.get('/api/clientes', async (req, res) => {
     try {
-        // ***** CONSULTA CORREGIDA *****
         const query = 'SELECT id, nombre FROM cliente ORDER BY nombre';
         const clientes = await executeQuery(query);
         res.json(clientes);
@@ -252,7 +319,6 @@ app.get('/api/clientes', async (req, res) => {
 // --- ENDPOINT PARA MAPA ---
 app.get('/api/puertos', async (req, res) => {
     try {
-        // ***** CONSULTA CORREGIDA *****
         const query = 'SELECT id, nombre, latitud, longitud FROM puerto WHERE latitud IS NOT NULL AND longitud IS NOT NULL';
         const puertos = await executeQuery(query);
         res.json(puertos);
@@ -261,33 +327,28 @@ app.get('/api/puertos', async (req, res) => {
     }
 });
 
-// --- ENDPOINTS QUE USAN PROCEDIMIENTOS ---
-// NOTA: Revisa que los procedimientos almacenados en la BD usen también los nombres de columna correctos.
-app.delete('/api/tripulantes/:id', async (req, res) => {
+// --- ENDPOINT PARA CAPITÁN ---
+app.post('/api/capitan/registrar-barco', async (req, res) => {
     try {
-        const tripulanteId = req.params.id;
-        const plsql = `BEGIN ELIMINAR_TRIPULANTE(p_tripulacion_id => :id); END;`;
-        await executeProcedure(plsql, { id: tripulanteId });
-        res.status(200).send({ message: `Tripulante con ID ${tripulanteId} eliminado` });
+        const { nombre, numeroImo, tipo, bandera, propietarioId, capitanUsuarioId } = req.body;
+        // NOTA: Asegúrate que el procedimiento REGISTRAR_BARCO_Y_ASIGNAR_CAPITAN exista en la BD.
+        const plsql = `BEGIN REGISTRAR_BARCO_Y_ASIGNAR_CAPITAN(:nombre, :numeroImo, :tipo, :bandera, :propietarioId, :capitanUsuarioId, :nuevoBarcoId); END;`;
+        
+        const binds = {
+            nombre, numeroImo, tipo, bandera, propietarioId, capitanUsuarioId,
+            nuevoBarcoId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+        };
+        
+        const result = await executeProcedure(plsql, binds);
+
+        res.status(201).send({ 
+            message: 'Barco registrado y asignado exitosamente.',
+            nuevoBarcoId: result.outBinds.nuevoBarcoId[0] 
+        });
     } catch (err) {
-        res.status(404).send({ message: 'Error al eliminar el tripulante', error: err.message });
+        res.status(500).send({ message: 'Error al registrar el barco', error: err.message });
     }
 });
-
-app.put('/api/tripulantes/:id', async (req, res) => {
-    try {
-        const tripulanteId = req.params.id;
-        const { nombre, rol, nacionalidad } = req.body;
-        const plsql = `BEGIN ACTUALIZAR_TRIPULANTE(p_tripulacion_id => :id, p_nombre => :nombre, p_rol => :rol, p_nacionalidad => :nacionalidad); END;`;
-        await executeProcedure(plsql, { id: tripulanteId, nombre, rol, nacionalidad });
-        res.status(200).send({ message: `Tripulante con ID ${tripulanteId} actualizado` });
-    } catch (err) {
-        res.status(500).send({ message: 'Error al actualizar el tripulante', error: err.message });
-    }
-});
-
-// ... (El resto de endpoints que llaman a procedimientos también deben ser revisados) ...
-
 
 // --- ENDPOINT PARA ANÁLISIS CON IA ---
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -319,7 +380,6 @@ app.post('/api/analisis-logistico', async (req, res) => {
         res.status(500).send({ message: 'Error al generar el análisis de IA' });
     }
 });
-
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {

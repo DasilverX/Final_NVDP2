@@ -115,3 +115,5 @@ INSERT INTO CATEGORIA_SERVICIO (CATEGORIA) VALUES ('Servicios a la Carga');
 COMMIT;
 
 SELECT 'Script v2.1 (Final) ejecutado exitosamente.' AS ESTATUS FROM DUAL;
+
+select count(*) FROM ROLES;
