@@ -264,17 +264,11 @@ app.post('/users', async (req, res) => {
   }
 });
 
-
-// Ponemos el servidor a escuchar en el puerto definido
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
-});
-
-
 // =======================================================================
 // INICIAR SERVIDOR
 // =======================================================================
 const port = process.env.PORT || 3000;
+
 app.listen(port, () => {
   console.log(`Servidor NVDPA v2.1 escuchando en el puerto ${port}`);
 });
