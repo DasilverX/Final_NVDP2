@@ -219,51 +219,6 @@ app.post('/api/analisis-logistico', async (req, res) => {
     }
 });
 
-/*
- * ------------------------------------------------------------------
- * 👇 AQUÍ LA PARTE DE POST PARA EL USER
- * ------------------------------------------------------------------
- * Endpoint: POST /users
- * Función: Crear un nuevo usuario en la base de datos.
- */
-app.post('/users', async (req, res) => {
-  try {
-    // 1. Obtenemos los datos del nuevo usuario desde el cuerpo (body) de la petición.
-    // Asegúrate de que el cliente (frontend, Postman, etc.) envíe un JSON con estos campos.
-    const { name, email, password } = req.body;
-
-    // Validación simple (puedes añadir más validaciones)
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios (name, email, password).' });
-    }
-
-    // 2. Creamos la consulta SQL para insertar el nuevo usuario.
-    // ¡IMPORTANTE! Usamos placeholders ($1, $2, $3) para evitar inyección SQL.
-    const sqlQuery = `
-      INSERT INTO users (name, email, password) 
-      VALUES ($1, $2, $3) 
-      RETURNING id, name, email, created_at;
-    `;
-    
-    // Los valores que reemplazarán a $1, $2, $3
-    const values = [name, email, password]; // Nota: En un proyecto real, la contraseña debería ser "hasheada" antes de guardarla.
-
-    // 3. Ejecutamos la consulta en la base de datos usando el pool.
-    const result = await pool.query(sqlQuery, values);
-
-    // 4. Enviamos una respuesta exitosa (código 201: Created) con los datos del usuario creado.
-    res.status(201).json({
-      message: 'Usuario creado exitosamente.',
-      user: result.rows[0]
-    });
-
-  } catch (error) {
-    // Si algo sale mal (ej: el email ya existe, error de conexión), capturamos el error.
-    console.error('Error al crear el usuario:', error);
-    res.status(500).json({ error: 'Ocurrió un error en el servidor.' });
-  }
-});
-
 // =======================================================================
 // INICIAR SERVIDOR
 // =======================================================================
