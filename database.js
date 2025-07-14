@@ -16,22 +16,21 @@ const dbConfigs = [
     }
 ];
 
-// Función que se ejecuta UNA SOLA VEZ al iniciar el servidor
+// Configuración del pool de conexiones
 async function initialize() {
     console.log('Iniciando conexión a la base de datos...');
     for (const config of dbConfigs) {
         try {
-            // Intenta crear el pool de conexiones. Si tiene éxito, termina el bucle.
             await oracledb.createPool(config);
-            console.log(`✅ Pool de conexiones creado exitosamente para: ${config.connectString}`);
-            return; // Sal del bucle y la función si la conexión fue exitosa
+            console.log(`Pool de conexiones creado exitosamente para: ${config.connectString}`);
+            return;
         } catch (err) {
             console.error(`⚠️ Fallo al conectar con [${config.connectString}]. Intentando con la siguiente opción...`);
         }
     }
 
     // Si el bucle termina y no se pudo crear ningún pool, la aplicación no puede continuar.
-    console.error('❌ FATAL: No se pudo establecer conexión con ninguna de las bases de datos disponibles.');
+    console.error('FATAL: No se pudo establecer conexión con ninguna de las bases de datos disponibles.');
     process.exit(1); // Detiene la aplicación
 }
 

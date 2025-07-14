@@ -1,25 +1,24 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'config.dart'; // Importamos la URL base de la API
+import 'config.dart';
 
 class AuthService with ChangeNotifier {
   Map<String, dynamic>? _user;
-  String? _token; // Opcional: para guardar un token JWT en el futuro
+  String? _token;
 
   Map<String, dynamic>? get user => _user;
   String? get token => _token;
   bool get isLoggedIn => _user != null;
   String? get userRole {
     if (_user == null || _user!['user'] == null) return null;
-    return _user!['user']['ROL'].toString().toLowerCase(); // Aseguramos que el rol venga en minúsculas
+    return _user!['user']['ROL'].toString().toLowerCase();
   }
 
   // ***** MÉTODO DE LOGIN ACTUALIZADO *****
   // Ahora toma el usuario y contraseña, y devuelve si tuvo éxito.
   Future<void> login(String nombre, String password) async {
-    final url = Uri.parse('$apiBaseUrl/api/auth/login'); // Usamos la URL del archivo de config
-
+    final url = Uri.parse('$apiBaseUrl/api/auth/login'); 
     try {
       final response = await http.post(
         url,
@@ -30,9 +29,7 @@ class AuthService with ChangeNotifier {
       if (response.statusCode == 200) {
         // Si el login es exitoso, guardamos los datos del usuario
         _user = jsonDecode(response.body);
-        
-        // Opcional: si tu API devuelve un token, guárdalo aquí
-        // _token = _user!['token'];
+
         
         notifyListeners(); // Notificamos a los widgets que el estado cambió
       } else {
@@ -55,7 +52,7 @@ class AuthService with ChangeNotifier {
   void updateUserBarcoId(int barcoId) {
     if (_user != null && _user!['user'] != null) {
       final newUserMap = Map<String, dynamic>.from(_user!);
-      newUserMap['user']['BARCOID'] = barcoId; // Asumiendo que el campo se llama BARCOID
+      newUserMap['user']['BARCOID'] = barcoId;
       _user = newUserMap;
       notifyListeners();
     }

@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'config.dart'; // Importa tu archivo de configuración de URL
+import 'config.dart';
 
-// Widget principal que muestra la lista de usuarios
 class GestionUsuariosScreen extends StatefulWidget {
   const GestionUsuariosScreen({super.key});
 
@@ -21,7 +20,6 @@ class _GestionUsuariosScreenState extends State<GestionUsuariosScreen> {
     _fetchUsuarios();
   }
 
-  // SOLUCIÓN PUNTO 1: Esta función obtiene y despliega los usuarios creados
   Future<void> _fetchUsuarios() async {
     setState(() => _isLoading = true);
     try {
@@ -49,7 +47,7 @@ class _GestionUsuariosScreenState extends State<GestionUsuariosScreen> {
       builder: (_) => const _AddUserForm(),
     ).then((success) {
       if (success == true) {
-        _fetchUsuarios(); // Refrescar la lista si se creó un usuario
+        _fetchUsuarios();
       }
     });
   }

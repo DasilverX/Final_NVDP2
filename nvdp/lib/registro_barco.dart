@@ -85,12 +85,9 @@ class _RegistrarBarcoScreenState extends State<RegistrarBarcoScreen> {
         if (response.statusCode == 201) {
           final responseData = jsonDecode(response.body);
           final nuevoBarcoId = responseData['nuevoBarcoId'];
-
-          // Actualizamos el estado de la app con el nuevo BarcoID
           authService.updateUserBarcoId(nuevoBarcoId);
 
           // ***** CAMBIO CLAVE AQUÍ *****
-          // Realizamos la navegación PRIMERO, para asegurar que se ejecute.
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(

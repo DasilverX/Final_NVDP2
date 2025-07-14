@@ -41,16 +41,14 @@ class _AddTripulanteScreenState extends State<AddTripulanteScreen> {
         );
 
         if (response.statusCode == 201) {
-          // Si el servidor responde con 201 (Created), todo fue bien
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Tripulante añadido exitosamente'),
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.of(context).pop(); // Regresar a la pantalla anterior
+          Navigator.of(context).pop();
         } else {
-          // Si hay un error, mostrar el mensaje del servidor
           final responseBody = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -76,7 +74,6 @@ class _AddTripulanteScreenState extends State<AddTripulanteScreen> {
   
   @override
   void dispose() {
-    // Limpiar los controladores cuando el widget se destruye
     _barcoIdController.dispose();
     _nombreController.dispose();
     _rolController.dispose();
@@ -95,7 +92,7 @@ class _AddTripulanteScreenState extends State<AddTripulanteScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: ListView( // Usamos ListView para evitar overflows si el teclado aparece
+          child: ListView(
             children: [
               TextFormField(
                 controller: _barcoIdController,

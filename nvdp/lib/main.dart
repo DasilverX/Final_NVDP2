@@ -12,7 +12,6 @@ import 'app_drawer.dart';
 
 void main() {
   runApp(
-    // Envolvemos la app con el ChangeNotifierProvider
     ChangeNotifierProvider(
       create: (context) => AuthService(),
       child: const NvdpaApp(),
@@ -25,48 +24,41 @@ class NvdpaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos nuestro tema personalizado aquí
     final theme = ThemeData(
-      // Usamos la fuente 'Lato' para todo el texto de la app
       textTheme: GoogleFonts.latoTextTheme(
         Theme.of(context).textTheme,
       ),
-      // Definimos la paleta de colores
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF003366), // Un azul marino como color principal
+        seedColor: const Color(0xFF003366),
         brightness: Brightness.light,
       ),
-      // Personalizamos la apariencia de las tarjetas
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
       ),
-      // Personalizamos la barra de navegación
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF003366), // Azul marino
-        foregroundColor: Colors.white, // Texto e iconos en blanco
+        backgroundColor: Color(0xFF003366), 
+        foregroundColor: Colors.white,
         elevation: 4,
       ),
-      // Personalizamos los botones flotantes
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: Color(0xFFf9a825), // Un color de acento, como un dorado/amarillo
+        backgroundColor: Color(0xFFf9a825),
       ),
       useMaterial3: true,
     );
 
     return MaterialApp(
       title: 'NVDPA',
-      theme: theme, // Aplicamos nuestro tema personalizado
-      debugShowCheckedModeBanner: false, // Ocultamos la cinta de "Debug"
+      theme: theme,
+      debugShowCheckedModeBanner: false,
       home: const LoginScreen(),
     );
   }
 }
 
 
-// El código de EscalasScreen (la pantalla principal) se queda igual que antes
 class EscalasScreen extends StatefulWidget {
   const EscalasScreen({super.key});
 
@@ -109,7 +101,7 @@ class _EscalasScreenState extends State<EscalasScreen> {
     final user = Provider.of<AuthService>(context).user;
 
     return Scaffold(
-      drawer: const AppDrawer(), // 1. Añadimos el menú lateral
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text('Bienvenido, ${user?['nombre'] ?? ''}'),
         actions: [
@@ -143,8 +135,7 @@ class _EscalasScreenState extends State<EscalasScreen> {
                     onTap: () {
                       final barcoId = escala['BARCOID'];
 
-                      // ***** PASO DE DEPURACIÓN *****
-                      // Imprimimos en la consola para ver qué estamos recibiendo.
+                      // ***** DEPURACIÓN *****
                       print(
                         'Se ha tocado una tarjeta. Intentando navegar al Barco ID: $barcoId',
                       );
@@ -157,7 +148,6 @@ class _EscalasScreenState extends State<EscalasScreen> {
                           ),
                         );
                       } else {
-                        // Si el ID es nulo, lo sabremos.
                         print(
                           'Navegación cancelada porque el BarcoID es nulo.',
                         );

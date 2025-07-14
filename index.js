@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const database = require('./database.js');
 
-// Importar las rutas que creamos
+// Importar las rutas
 const authRoutes = require('./routes/auth.js');
 const barcoRoutes = require('./routes/barcos.js');
 const tripulanteRoutes = require('./routes/tripulantes.js');

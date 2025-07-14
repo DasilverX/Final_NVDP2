@@ -108,7 +108,6 @@ class _BarcoDetalleScreenState extends State<BarcoDetalleScreen> {
             if (_tripulacion.isEmpty)
               const Text('No hay tripulantes registrados para este barco.')
             else
-              // Usamos Column en lugar de ListView para que funcione dentro de SingleChildScrollView
               Column(
                 children: _tripulacion.map((tripulante) {
                   return ListTile(

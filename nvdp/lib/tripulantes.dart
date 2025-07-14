@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart'; // ***** AÑADIDO *****
-import 'auth_service.dart'; // ***** AÑADIDO *****
-import 'add_tripulante.dart'; // ***** AÑADIDO (asegúrate que el nombre del archivo sea correcto) *****
+import 'package:provider/provider.dart'; 
+import 'auth_service.dart'; 
+import 'add_tripulante.dart';
 import 'edit_tripulante.dart';
 import 'config.dart';
 class TripulantesScreen extends StatefulWidget {
@@ -61,7 +61,6 @@ class _TripulantesScreenState extends State<TripulantesScreen> {
             ),
           );
         }
-        // Refrescar la lista después de eliminar
         _fetchTripulantes();
       } else {
         final responseBody = jsonDecode(response.body);

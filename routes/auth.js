@@ -22,14 +22,13 @@ router.post('/login', async (req, res) => {
         const user = users[0];
         
         // Compara la contraseña enviada con el hash guardado en la BD
-        // ¡Esto es mucho más seguro que comparar texto plano!
         const isMatch = await bcrypt.compare(password, user.PASSWORD_HASH);
 
         if (!isMatch) {
             return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
         
-        // Si el login es exitoso...
+        // login es exitoso
         res.json({
             message: 'Login exitoso',
             user: {
@@ -37,7 +36,6 @@ router.post('/login', async (req, res) => {
                 nombre: user.NOMBRE_USUARIO,
                 rol: user.ID_ROL
             }
-            // En una app real, aquí generarías y enviarías un Token (JWT)
         });
 
     } catch (err) {

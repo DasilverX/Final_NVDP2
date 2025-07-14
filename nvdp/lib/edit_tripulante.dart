@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'config.dart';
 
 class EditTripulanteScreen extends StatefulWidget {
-  // Este widget recibe los datos del tripulante que se va a editar
   final Map<String, dynamic> tripulante;
 
   const EditTripulanteScreen({super.key, required this.tripulante});
@@ -23,7 +22,6 @@ class _EditTripulanteScreenState extends State<EditTripulanteScreen> {
   @override
   void initState() {
     super.initState();
-    // Llenamos los controladores con los datos existentes del tripulante
     _nombreController = TextEditingController(text: widget.tripulante['NOMBRE']);
     _rolController = TextEditingController(text: widget.tripulante['ROL']);
     _nacionalidadController = TextEditingController(text: widget.tripulante['NACIONALIDAD']);
@@ -56,7 +54,7 @@ class _EditTripulanteScreenState extends State<EditTripulanteScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.of(context).pop(true); // Regresar y enviar 'true' para indicar éxito
+          Navigator.of(context).pop(true);
         } else {
           final responseBody = jsonDecode(response.body);
           throw Exception('Error al actualizar: ${responseBody['message']}');

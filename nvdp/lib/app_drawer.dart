@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'login.dart';
-import 'main.dart'; // Contiene EscalasScreen
+import 'main.dart';
 import 'gestion_barcos.dart';
 import 'tripulantes.dart';
 import 'map.dart';
 import 'analisis.dart';
 import 'about.dart';
-import 'gestion_usuarios.dart'; // <-- Importante: Añadir la nueva pantalla
+import 'gestion_usuarios.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -74,7 +74,6 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           // ***** NUEVA SECCIÓN AÑADIDA *****
-          // Este ListTile solo se construye si el usuario es administrador
           if (esAdmin)
             ListTile(
               leading: const Icon(Icons.manage_accounts),

@@ -5,7 +5,6 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Usamos el tema que ya definimos para que los estilos de texto sean consistentes
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(

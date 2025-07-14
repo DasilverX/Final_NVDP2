@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'config.dart';
 
 class AddBarcoScreen extends StatefulWidget {
-  // Hacemos que el barco sea opcional. Si viene, estamos editando.
   final Map<String, dynamic>? barco;
 
   const AddBarcoScreen({super.key, this.barco});
@@ -25,19 +24,16 @@ class _AddBarcoScreenState extends State<AddBarcoScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
-  // Determinamos si estamos en modo de edición
   bool get _isEditing => widget.barco != null;
 
   @override
   void initState() {
     super.initState();
-    // Si estamos editando, llenamos los campos con los datos del barco
     if (_isEditing) {
       _nombreController.text = widget.barco!['NOMBRE'];
       _imoController.text = widget.barco!['NUMEROIMO'];
       _tipoController.text = widget.barco!['TIPO'];
       _banderaController.text = widget.barco!['BANDERA'];
-      // Guardamos el ID del propietario para pre-seleccionar en el dropdown
       _selectedClienteId = widget.barco!['PROPIETARIOID'];
     }
     _fetchClientes();
@@ -78,7 +74,6 @@ class _AddBarcoScreenState extends State<AddBarcoScreen> {
   Future<void> _onSave() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSaving = true);
-      // Dependiendo del modo, llamamos a una función u otra
       if (_isEditing) {
         await _updateBarco();
       } else {
@@ -109,7 +104,7 @@ class _AddBarcoScreenState extends State<AddBarcoScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Barco añadido con éxito'),
               backgroundColor: Colors.green));
-          Navigator.of(context).pop(true); // Regresar y refrescar
+          Navigator.of(context).pop(true);
         }
       } else {
         final responseBody = jsonDecode(response.body);

@@ -55,8 +55,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateByUserRole(AuthService authService) {
-    // La lógica de navegación basada en roles ya estaba bien, pero la ajustamos
-    // para usar el getter 'userRole' que es más seguro.
     final role = authService.userRole;
     
     if (role == 'administrador' || role == 'visitante' || role == 'operador') {
@@ -65,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else if (role == 'capitan') {
       final user = authService.user!['user'];
-      final barcoId = user['BARCOID']; // Asegúrate que el campo se llame así en la respuesta JSON
+      final barcoId = user['BARCOID'];
       final nombreCapitan = user['NOMBRE'];
 
       if (barcoId == null) {
@@ -87,7 +85,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // El widget build no necesita cambios, se mantiene igual.
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(

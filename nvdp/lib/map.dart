@@ -69,8 +69,8 @@ class _MapaScreenState extends State<MapaScreen> {
           ? const Center(child: CircularProgressIndicator())
           : FlutterMap(
               options: const MapOptions(
-                initialCenter: LatLng(20, 0), // Centro inicial del mapa
-                initialZoom: 2.0, // Zoom inicial para ver el mundo
+                initialCenter: LatLng(20, 0), 
+                initialZoom: 2.0, 
               ),
               children: [
                 TileLayer(
