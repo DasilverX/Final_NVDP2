@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:nvdp/registro_barco.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import 'main.dart'; // Importa EscalasScreen
 import 'capitanes.dart'; // Importa CapitanDashboardScreen
-import 'config.dart'; // Importa la URL del API
-import 'package:http/http.dart' as http; // Importa el paquete http
-import 'dart:convert'; // Importa las herramientas de JSON
+import 'registro_barco.dart'; // Importa la pantalla de registro de barco
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,58 +19,55 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isPasswordVisible = false;
 
+  // ***** FUNCIÓN DE LOGIN SIMPLIFICADA *****
   Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
-      if (!mounted) return;
-      setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
+    
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
-      final authService = Provider.of<AuthService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
 
-      try {
-        final response = await http.post(
-          Uri.parse('$apiBaseUrl/api/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'nombre': _nombreController.text,
-            'password': _passwordController.text,
-          }),
+    try {
+      // Llamamos al nuevo método de login en nuestro servicio
+      await authService.login(
+        _nombreController.text,
+        _passwordController.text,
+      );
+
+      // Si el login fue exitoso (no lanzó excepción), navegamos
+      if (mounted) {
+        _navigateByUserRole(authService);
+      }
+
+    } catch (e) {
+      // Si el servicio lanzó una excepción, la mostramos aquí
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll("Exception: ", "")), backgroundColor: Colors.red),
         );
-
-        if (mounted) {
-          if (response.statusCode == 200) {
-            final userData = jsonDecode(response.body);
-            authService.login(userData);
-            _navigateByUserRole(authService);
-          } else {
-            final error = jsonDecode(response.body);
-            throw Exception(error['message'] ?? 'Error desconocido');
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
 
   void _navigateByUserRole(AuthService authService) {
-    final userRole = authService.user!['rol'];
+    // La lógica de navegación basada en roles ya estaba bien, pero la ajustamos
+    // para usar el getter 'userRole' que es más seguro.
+    final role = authService.userRole;
     
-    if (userRole == 'administrador' || userRole == 'visitante' || userRole == 'operador') {
+    if (role == 'administrador' || role == 'visitante' || role == 'operador') {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const EscalasScreen()),
       );
-    } else if (userRole == 'capitan') {
-      final barcoId = authService.user!['barcoId'];
-      final nombreCapitan = authService.user!['nombre'];
-      
+    } else if (role == 'capitan') {
+      final user = authService.user!['user'];
+      final barcoId = user['BARCOID']; // Asegúrate que el campo se llame así en la respuesta JSON
+      final nombreCapitan = user['NOMBRE'];
+
       if (barcoId == null) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const RegistrarBarcoScreen()),
@@ -93,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // El widget build no necesita cambios, se mantiene igual.
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(

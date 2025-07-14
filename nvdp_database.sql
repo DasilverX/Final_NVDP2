@@ -292,3 +292,10 @@ END;
 /
 
 SELECT 'Todos los procedimientos necesarios han sido creados o actualizados.' AS ESTATUS FROM DUAL;
+
+
+UPDATE USUARIOS
+SET PASSWORD_HASH = '$2b$10$wT5v2L5.aG2zSQLy64CVA.i91hFGLsXg3voACpS3y5k2B6r6qGyOq'
+WHERE NOMBRE_USUARIO = 'admin';
+
+COMMIT;
