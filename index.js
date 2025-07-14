@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // Montar las rutas en la API
-app.use('/api/auth', authRoutes);
+app.use('/api', authRoutes);
 app.use('/api/barcos', barcoRoutes);
 app.use('/api/tripulantes', tripulanteRoutes);
 
