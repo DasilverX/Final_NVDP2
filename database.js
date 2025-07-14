@@ -16,6 +16,24 @@ const dbConfigs = [
     }
 ];
 
+// Importamos el paquete de node-postgres
+const { Pool } = require('pg');
+
+// Creamos un "pool" de conexiones. El pool gestiona múltiples clientes de conexión por nosotros.
+const pool = new Pool({
+  // 👇 AQUÍ VAN TUS CREDENCIALES DE LA BASE DE DATOS
+  // Puedes reemplazarlas directamente o, para mayor seguridad, usar variables de entorno.
+  user: process.env.DB_USER_SUPA,       // Ej: 'postgres'
+  host: 'aws-0-us-east-2.pooler.supabase.com',                     // Ej: 'localhost'
+  database: 'postgres',   // Ej: 'usersdb'
+  password: process.env.DB_PASSWORD_SUPA,           // Ej: 'mysecretpassword'
+  port: 5432,// Puerto por defecto de PostgreSQL
+  ssl: { rejectUnauthorized: false } // Desactiva la verificación del certificado SSL (opcional, pero
+});
+
+// Exportamos el pool para poder usarlo en otros archivos de nuestro proyecto
+module.exports = pool;
+
 // Nueva función "inteligente" para obtener una conexión
 async function getConnection() {
     for (const config of dbConfigs) {
