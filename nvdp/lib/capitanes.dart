@@ -79,7 +79,7 @@ class _CapitanDashboardScreenState extends State<CapitanDashboardScreen> {
             onPressed: () {
               Provider.of<AuthService>(context, listen: false).logout();
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                MaterialPageRoute(builder: (context) =>  LoginScreen()),
                 (Route<dynamic> route) => false,
               );
             },

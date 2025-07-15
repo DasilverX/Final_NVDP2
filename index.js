@@ -125,22 +125,73 @@ app.post('/api/barcos', async (req, res) => {
     }
 });
 
+// PUT: Actualizar un barco existente por su ID
+app.put('/api/barcos/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    const { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente } = req.body;
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `UPDATE BARCO 
+                     SET NOMBRE_BARCO = :nombre_barco, 
+                         NUMERO_IMO = :numero_imo, 
+                         ID_TIPO_BARCO = :id_tipo_barco, 
+                         ID_PAIS_BANDERA = :id_pais_bandera, 
+                         ID_CLIENTE = :id_cliente
+                     WHERE ID_BARCO = :id`;
+
+        const result = await connection.execute(
+            sql,
+            { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente, id },
+            { autoCommit: true }
+        );
+
+        if (result.rowsAffected === 0) {
+            return res.status(404).json({ message: "Barco no encontrado para actualizar." });
+        }
+
+        res.status(200).json({ message: "Barco actualizado exitosamente." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        if (connection) {
+            try { await connection.close(); } 
+            catch (err) { console.error(err); }
+        }
+    }
+});
 
 // --- Endpoints para ESCALAS PORTUARIAS ---
 
-// GET: Obtener todas las escalas de un barco específico
-app.get('/api/barcos/:id_barco/escalas', async (req, res) => {
+// GET: Obtener todas las escalas con información adicional (JOIN)
+app.get('/api/escalas', async (req, res) => {
     let connection;
-    const { id_barco } = req.params;
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const sql = `SELECT ID_ESCALA, ID_PUERTO, FECHA_LLEGADA, FECHA_SALIDA, MUELLE FROM ESCALA_PORTUARIA WHERE ID_BARCO = :id_barco ORDER BY FECHA_LLEGADA DESC`;
-        const result = await connection.execute(sql, { id_barco });
+        // Hacemos un JOIN para obtener los nombres en lugar de solo los IDs
+        const sql = `
+            SELECT 
+                e.ID_ESCALA, e.ID_BARCO,
+                b.NOMBRE_BARCO,
+                c.NOMBRE_CLIENTE,
+                p.NOMBRE_PUERTO
+            FROM ESCALA_PORTUARIA e
+            JOIN BARCO b ON e.ID_BARCO = b.ID_BARCO
+            JOIN CLIENTE c ON b.ID_CLIENTE = c.ID_CLIENTE
+            JOIN PUERTO p ON e.ID_PUERTO = p.ID_PUERTO
+            ORDER BY e.FECHA_LLEGADA DESC
+        `;
+        const result = await connection.execute(sql);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {
-        await closeConnection(connection);
+        if (connection) {
+            try { await connection.close(); }
+            catch (err) { console.error(err); }
+        }
     }
 });
 

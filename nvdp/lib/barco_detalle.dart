@@ -1,152 +1,77 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'config.dart';
+// lib/barco_detalle.dart
 
+import 'package:flutter/material.dart';
+import 'package:nvdp/api_service.dart';
 class BarcoDetalleScreen extends StatefulWidget {
+  // Esta variable recibirá el ID desde la pantalla anterior (gestion_barcos)
   final int barcoId;
 
-  const BarcoDetalleScreen({super.key, required this.barcoId});
+  const BarcoDetalleScreen({Key? key, required this.barcoId}) : super(key: key);
 
   @override
-  State<BarcoDetalleScreen> createState() => _BarcoDetalleScreenState();
+  _BarcoDetalleScreenState createState() => _BarcoDetalleScreenState();
 }
 
 class _BarcoDetalleScreenState extends State<BarcoDetalleScreen> {
-  Map<String, dynamic>? _detalles;
-  List _tripulacion = [];
-  List _historialEscalas = [];
-  bool _isLoading = true;
-  String? _error;
+  final ApiService _apiService = ApiService();
+  late Future<Map<String, dynamic>> _barcoFuture;
 
   @override
   void initState() {
     super.initState();
-    _fetchBarcoDetalles();
-  }
-
-  Future<void> _fetchBarcoDetalles() async {
-    final url = '$apiBaseUrl/api/barcos/${widget.barcoId}';
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _detalles = data['detalles'];
-          _tripulacion = data['tripulacion'];
-          _historialEscalas = data['historial_escalas'];
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Fallo al cargar los detalles del barco');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
-    }
+    // Usamos el widget.barcoId para llamar al API y cargar los datos
+    _barcoFuture = _apiService.getBarcoById(widget.barcoId);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isLoading ? 'Cargando...' : _detalles?['NOMBRE'] ?? 'Detalle del Barco'),
+        title: Text('Detalles del Barco'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _detalles == null
-                  ? const Center(child: Text('No se encontraron detalles para este barco.'))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildDetallesCard(),
-                          const SizedBox(height: 20),
-                          _buildTripulacionCard(),
-                          const SizedBox(height: 20),
-                          _buildHistorialEscalasCard(),
-                        ],
-                      ),
-                    ),
-    );
-  }
-
-  Widget _buildDetallesCard() {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Información General', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(),
-            Text('IMO: ${_detalles!['NUMEROIMO']}'),
-            Text('Tipo: ${_detalles!['TIPO']}'),
-            Text('Bandera: ${_detalles!['BANDERA']}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTripulacionCard() {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Tripulación a Bordo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(),
-            if (_tripulacion.isEmpty)
-              const Text('No hay tripulantes registrados para este barco.')
-            else
-              Column(
-                children: _tripulacion.map((tripulante) {
-                  return ListTile(
-                    leading: const Icon(Icons.person),
-                    title: Text(tripulante['NOMBRE']),
-                    subtitle: Text(tripulante['ROL']),
-                  );
-                }).toList(),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _barcoFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (snapshot.hasData) {
+            // Si tenemos datos, los extraemos del mapa
+            final barco = snapshot.data!;
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ListView(
+                children: [
+                  // Mostramos cada detalle del barco
+                  ListTile(
+                    title: Text('Nombre del Barco'),
+                    subtitle: Text(barco['NOMBRE_BARCO'] ?? 'No disponible'),
+                  ),
+                  ListTile(
+                    title: Text('Número IMO'),
+                    subtitle: Text(barco['NUMERO_IMO'] ?? 'No disponible'),
+                  ),
+                  ListTile(
+                    title: Text('ID del Cliente'),
+                    subtitle: Text(barco['ID_CLIENTE']?.toString() ?? 'No asignado'),
+                  ),
+                  // Puedes añadir más campos aquí...
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                      onPressed: () {
+                        // Aquí podrías navegar a ver las escalas de este barco
+                        // Navigator.push(...);
+                      },
+                      child: Text('Ver Escalas Portuarias'),
+                  )
+                ],
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistorialEscalasCard() {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Historial de Escalas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(),
-            if (_historialEscalas.isEmpty)
-              const Text('No hay escalas registradas para este barco.')
-            else
-              Column(
-                children: _historialEscalas.map((escala) {
-                  return ListTile(
-                    leading: const Icon(Icons.location_on),
-                    title: Text(escala['NOMBREPUERTO']),
-                    subtitle: Text('Llegada: ${escala['FECHAHORALLEGADA']}'),
-                  );
-                }).toList(),
-              ),
-          ],
-        ),
+            );
+          } else {
+            return Center(child: Text('No se encontró información del barco.'));
+          }
+        },
       ),
     );
   }

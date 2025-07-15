@@ -87,7 +87,6 @@ class _RegistrarBarcoScreenState extends State<RegistrarBarcoScreen> {
           final nuevoBarcoId = responseData['nuevoBarcoId'];
           authService.updateUserBarcoId(nuevoBarcoId);
 
-          // ***** CAMBIO CLAVE AQUÍ *****
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
