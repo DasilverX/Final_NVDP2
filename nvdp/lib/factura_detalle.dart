@@ -58,7 +58,7 @@ class _FacturaDetalleScreenState extends State<FacturaDetalleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final esAdmin = Provider.of<AuthService>(context).userRole == 'administrador';
+    final esAdmin = Provider.of<AuthService>(context).userData == 'administrador';
     final currencyFormatter = NumberFormat.currency(locale: 'en_US', symbol: '\$');
 
     return Scaffold(

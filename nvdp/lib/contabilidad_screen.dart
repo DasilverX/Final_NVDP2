@@ -1,9 +1,10 @@
 // lib/contabilidad_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Necesitarás añadir este paquete: flutter pub add intl
+import 'package:intl/intl.dart';
 import 'api_service.dart';
-import 'factura_detalle.dart'; // La crearemos a continuación
+import 'factura_detalle.dart';
+import 'add_factura.dart';
 
 class ContabilidadScreen extends StatefulWidget {
   const ContabilidadScreen({super.key});
@@ -20,6 +21,12 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
   void initState() {
     super.initState();
     _facturasFuture = _apiService.getFacturas();
+  }
+
+  void _refreshData() {
+    setState(() {
+      _facturasFuture = _apiService.getFacturas();
+    });
   }
 
   @override
@@ -40,36 +47,65 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
             return const Center(child: Text('No hay facturas para mostrar.'));
           }
 
-          return ListView.builder(
-            itemCount: facturas.length,
-            itemBuilder: (context, index) {
-              final factura = facturas[index];
-              // Formateador para la moneda
-              final currencyFormatter = NumberFormat.currency(locale: 'en_US', symbol: '\$');
-              // Formateador para la fecha
-              final date = DateTime.parse(factura['FECHA_EMISION']);
-              final dateFormatter = DateFormat('dd/MM/yyyy');
+          return RefreshIndicator(
+            onRefresh: () async => _refreshData(),
+            child: ListView.builder(
+              itemCount: facturas.length,
+              itemBuilder: (context, index) {
+                final factura = facturas[index];
+                final currencyFormatter =
+                    NumberFormat.currency(locale: 'en_US', symbol: '\$');
+                final date = DateTime.parse(factura['FECHA_EMISION']);
+                final dateFormatter = DateFormat('dd/MM/yyyy');
 
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: ListTile(
-                  leading: CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-                  title: Text(factura['NUMERO_FACTURA']),
-                  subtitle: Text('Cliente: ${factura['NOMBRE_CLIENTE']}\nFecha: ${dateFormatter.format(date)}'),
-                  trailing: Text(
-                    currencyFormatter.format(factura['MONTO_TOTAL']),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                return Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                        child: Icon(Icons.receipt_long_outlined)),
+                    title: Text(factura['NUMERO_FACTURA']),
+                    subtitle: Text(
+                        'Cliente: ${factura['NOMBRE_CLIENTE']}\nFecha: ${dateFormatter.format(date)}'),
+                    trailing: Text(
+                      currencyFormatter.format(factura['MONTO_TOTAL']),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    onTap: () async {
+                      // Navegamos al detalle y esperamos un posible resultado para refrescar
+                      final result = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              FacturaDetalleScreen(factura: factura),
+                        ),
+                      );
+                      if (result == true) {
+                        _refreshData();
+                      }
+                    },
                   ),
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (context) => FacturaDetalleScreen(factura: factura),
-                    ));
-                  },
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
+      ),
+      // --- BOTÓN PARA AÑADIR NUEVA FACTURA ---
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const AddFacturaScreen()),
+          );
+          // Si volvemos del formulario y el resultado es 'true', refrescamos la lista
+          if (result == true) {
+            _refreshData();
+          }
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

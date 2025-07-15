@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fl_chart/fl_chart.dart'; // Importamos el paquete de gráficas
-
+import 'package:fl_chart/fl_chart.dart'; 
 import 'auth_service.dart';
 import 'login.dart';
 import 'app_drawer.dart';
@@ -10,8 +9,6 @@ import 'api_service.dart';
 import 'gestion_barcos.dart';
 import 'tripulantes.dart';
 import 'contabilidad_screen.dart';
-import 'gestion_usuarios.dart';
-import 'map.dart';
 
 
 void main() {

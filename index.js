@@ -3,6 +3,7 @@ const express = require('express');
 const oracledb = require('oracledb');
 const cors = require('cors');
 const bcrypt = require('bcryptjs'); 
+const nodemailer = require('nodemailer');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -28,6 +29,31 @@ async function closeConnection(connection) {
         }
     }
 }
+
+async function setupEmailTransporter() {
+    // Genera una cuenta de prueba en Ethereal
+    let testAccount = await nodemailer.createTestAccount();
+    console.log(`
+    *************************************************
+    Para ver los correos de prueba, usa estas credenciales en Ethereal:
+    Usuario: ${testAccount.user}
+    Contraseña: ${testAccount.pass}
+    *************************************************
+    `);
+
+    // Crea el objeto transportador usando el SMTP de Ethereal
+    return nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false, 
+        auth: {
+            user: testAccount.user,
+            pass: testAccount.pass,
+        },
+    });
+}
+let transporter;
+setupEmailTransporter().then(t => transporter = t);
 
 // =======================================================================
 // SECCIÓN DE ENDPOINTS
@@ -319,6 +345,57 @@ app.post('/api/peticiones', async (req, res) => {
 
 // --- Endpoints para FACTURAS ---
 
+
+// PATCH: Actualizar solo el estado de una factura y enviar correo
+app.patch('/api/facturas/:id/status', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    const { nuevoStatus } = req.body;
+
+    if (!nuevoStatus) {
+        return res.status(400).json({ error: "El nuevo estado es requerido." });
+    }
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        // Actualizamos la factura
+        const sql = `UPDATE FACTURA SET ESTADO_FACTURA = :nuevoStatus WHERE ID_FACTURA = :id`;
+        await connection.execute(sql, { nuevoStatus, id }, { autoCommit: true });
+
+        // Si el estado es 'Pagado', obtenemos los datos para enviar el correo
+        if (nuevoStatus === 'Pagado') {
+            const facturaSql = `
+                SELECT f.NUMERO_FACTURA, f.MONTO_TOTAL, c.NOMBRE_CLIENTE
+                FROM FACTURA f
+                JOIN CLIENTE c ON f.ID_CLIENTE = c.ID_CLIENTE
+                WHERE f.ID_FACTURA = :id
+            `;
+            const result = await connection.execute(facturaSql, {id}, {outFormat: oracledb.OUT_FORMAT_OBJECT});
+            const facturaInfo = result.rows[0];
+
+            // Enviamos el correo de confirmación
+            const mailOptions = {
+                from: '"NVDPA Sistema" <no-reply@nvdpa.com>',
+                to: "cliente@ejemplo.com", // En un caso real, aquí iría el email del cliente
+                subject: `Confirmación de Pago - Factura ${facturaInfo.NUMERO_FACTURA}`,
+                text: `Hola ${facturaInfo.NOMBRE_CLIENTE},\n\nTe confirmamos que hemos recibido tu pago de \$${facturaInfo.MONTO_TOTAL} para la factura N° ${facturaInfo.NUMERO_FACTURA}.\n\nGracias por tu negocio.\n\nAtentamente,\nEl equipo de NVDPA`,
+                html: `<p>Hola ${facturaInfo.NOMBRE_CLIENTE},</p><p>Te confirmamos que hemos recibido tu pago de <b>\$${facturaInfo.MONTO_TOTAL}</b> para la factura N° ${facturaInfo.NUMERO_FACTURA}.</p><p>Gracias por tu negocio.</p><p>Atentamente,<br>El equipo de NVDPA</p>`,
+            };
+            
+            let info = await transporter.sendMail(mailOptions);
+            console.log("Correo enviado. Preview URL: %s", nodemailer.getTestMessageUrl(info));
+        }
+        
+        res.status(200).json({ message: `Estado de la factura actualizado a ${nuevoStatus}.` });
+
+    } catch (err) {
+        console.error("Error en PATCH /api/facturas/:id/status:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
 // GET: Obtener todas las facturas de una escala específica
 app.get('/api/escalas/:id_escala/facturas', async (req, res) => {
     let connection;
@@ -560,6 +637,60 @@ app.get('/api/facturas/:id/detalles', async (req, res) => {
     }
 });
 
+// POST: Crear una nueva factura y su primer detalle (TRANSACCIONAL)
+app.post('/api/facturas', async (req, res) => {
+    let connection;
+    // Recibimos los datos de la factura y del primer detalle
+    const { id_escala, id_cliente, numero_factura, id_moneda, detalle } = req.body;
+
+    if (!id_escala || !id_cliente || !numero_factura || !detalle) {
+        return res.status(400).json({ error: "Faltan datos para crear la factura." });
+    }
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        await connection.beginTransaction(); // <-- Iniciamos la transacción
+
+        // 1. Insertamos la factura principal con monto total 0 inicialmente
+        const facturaSql = `INSERT INTO FACTURA (ID_ESCALA, ID_CLIENTE, NUMERO_FACTURA, ID_MONEDA, ESTADO_FACTURA, MONTO_TOTAL)
+                            VALUES (:id_escala, :id_cliente, :numero_factura, :id_moneda, 'Borrador', 0)
+                            RETURNING ID_FACTURA INTO :out_id`;
+        
+        const facturaResult = await connection.execute(facturaSql, 
+            { id_escala, id_cliente, numero_factura, id_moneda, out_id: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT } }
+        );
+        const nuevaFacturaId = facturaResult.outBinds.out_id[0];
+
+        // 2. Insertamos la línea de detalle
+        const subtotal = detalle.precio_unitario * detalle.cantidad;
+        const detalleSql = `INSERT INTO DETALLE_FACTURA (ID_FACTURA, DESCRIPCION, PRECIO_UNITARIO, CANTIDAD, SUBTOTAL)
+                            VALUES (:id_factura, :descripcion, :precio_unitario, :cantidad, :subtotal)`;
+        await connection.execute(detalleSql, {
+            id_factura: nuevaFacturaId,
+            descripcion: detalle.descripcion,
+            precio_unitario: detalle.precio_unitario,
+            cantidad: detalle.cantidad,
+            subtotal: subtotal
+        });
+
+        // 3. Actualizamos el monto total de la factura
+        const updateSql = `UPDATE FACTURA SET MONTO_TOTAL = :subtotal WHERE ID_FACTURA = :id_factura`;
+        await connection.execute(updateSql, { subtotal, id_factura: nuevaFacturaId });
+
+        await connection.commit(); // <-- Confirmamos todos los cambios
+        res.status(201).json({ message: "Factura creada exitosamente.", facturaId: nuevaFacturaId });
+
+    } catch (err) {
+        if (connection) {
+            await connection.rollback(); // <-- Si algo falla, revertimos todo
+        }
+        console.error("Error en POST /api/facturas:", err);
+        res.status(500).json({ error: "Error al crear la factura: " + err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
 // PATCH: Actualizar solo el estado de una factura
 app.patch('/api/facturas/:id/status', async (req, res) => {
     let connection;
@@ -654,6 +785,116 @@ app.get('/api/analytics/facturas', async (req, res) => {
     }
 });
 
+
+// POST: Crear un nuevo registro de documento
+app.post('/api/documentos', async (req, res) => {
+    let connection;
+    // Ahora recibimos id_pago
+    const { id_escala, id_tipo_documento, nombre_archivo, id_pago } = req.body;
+
+    // El id_pago es ahora el campo importante, aunque podríamos requerir ambos
+    if (!id_tipo_documento || !nombre_archivo || !id_pago) {
+        return res.status(400).json({ error: "Tipo, nombre de archivo y ID del pago son requeridos." });
+    }
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `INSERT INTO DOCUMENTO (ID_ESCALA, ID_TIPO_DOCUMENTO, NOMBRE_ARCHIVO, RUTA_ARCHIVO, FECHA_SUBIDA, ID_PAGO) 
+                     VALUES (:id_escala, :id_tipo_documento, :nombre_archivo, :ruta_archivo, SYSDATE, :id_pago)`;
+        
+        const binds = { 
+            id_escala, // Puede ser nulo si el documento solo se relaciona al pago
+            id_tipo_documento, 
+            nombre_archivo, 
+            ruta_archivo: `/docs/pagos/${nombre_archivo}`,
+            id_pago 
+        };
+        
+        await connection.execute(sql, binds, { autoCommit: true });
+        res.status(201).json({ message: "Documento registrado exitosamente." });
+
+    } catch (err) {
+        console.error("Error en POST /api/documentos:", err);
+        if (err.errorNum === 2291) {
+             return res.status(400).json({ error: "El ID del pago, escala o tipo de documento no existe." });
+        }
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+
+// --- Endpoints para CLIENTES ---
+
+// GET: Obtener todos los clientes
+app.get('/api/clientes', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const result = await connection.execute(`SELECT * FROM CLIENTE ORDER BY NOMBRE_CLIENTE`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// POST: Crear un nuevo cliente
+app.post('/api/clientes', async (req, res) => {
+    let connection;
+    const { nombre_cliente, ruc_cliente, direccion, contacto_principal } = req.body;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `INSERT INTO CLIENTE (NOMBRE_CLIENTE, RUC_CLIENTE, DIRECCION, CONTACTO_PRINCIPAL) VALUES (:nombre_cliente, :ruc_cliente, :direccion, :contacto_principal)`;
+        await connection.execute(sql, { nombre_cliente, ruc_cliente, direccion, contacto_principal }, { autoCommit: true });
+        res.status(201).json({ message: "Cliente creado exitosamente." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// PUT: Actualizar un cliente existente
+app.put('/api/clientes/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    const { nombre_cliente, ruc_cliente, direccion, contacto_principal } = req.body;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `UPDATE CLIENTE SET NOMBRE_CLIENTE = :nombre_cliente, RUC_CLIENTE = :ruc_cliente, DIRECCION = :direccion, CONTACTO_PRINCIPAL = :contacto_principal WHERE ID_CLIENTE = :id`;
+        const result = await connection.execute(sql, { nombre_cliente, ruc_cliente, direccion, contacto_principal, id }, { autoCommit: true });
+
+        if (result.rowsAffected === 0) {
+            return res.status(404).json({ message: "Cliente no encontrado." });
+        }
+        res.status(200).json({ message: "Cliente actualizado exitosamente." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// DELETE: Eliminar un cliente
+app.delete('/api/clientes/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        await connection.execute(`DELETE FROM CLIENTE WHERE ID_CLIENTE = :id`, { id }, { autoCommit: true });
+        res.status(200).json({ message: "Cliente eliminado." });
+    } catch (err) {
+        if (err.errorNum === 2292) {
+            return res.status(400).json({ error: "No se puede eliminar el cliente porque tiene barcos asociados." });
+        }
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
 
 // Iniciar el Servidor
 app.listen(port, () => {

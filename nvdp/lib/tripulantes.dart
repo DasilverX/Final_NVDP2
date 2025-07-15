@@ -79,7 +79,7 @@ class _TripulantesScreenState extends State<TripulantesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final esAdmin = Provider.of<AuthService>(context).userRole == 'administrador';
+    final esAdmin = Provider.of<AuthService>(context).userData == 'administrador';
 
     return Scaffold(
       appBar: AppBar(

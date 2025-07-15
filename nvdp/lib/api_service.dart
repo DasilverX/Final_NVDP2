@@ -231,4 +231,57 @@ Future<bool> addTripulante(Map<String, dynamic> data) async {
     return response.statusCode == 200;
   }
 
+
+    // --- Función para DOCUMENTOS ---
+  Future<bool> addDocumento(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/documentos'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    return response.statusCode == 201;
+  }
+
+
+// --- Funciones para CLIENTES ---
+  Future<List<dynamic>> getClientes() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/clientes'));
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Fallo al cargar los clientes');
+  }
+
+  Future<bool> addCliente(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/clientes'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    return response.statusCode == 201;
+  }
+
+  Future<bool> updateCliente(int id, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/api/clientes/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<void> deleteCliente(int id) async {
+    final response = await http.delete(Uri.parse('$_baseUrl/api/clientes/$id'));
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)['error'] ?? 'Fallo al eliminar el cliente');
+    }
+  }
+
+  Future<bool> addFactura(Map<String, dynamic> data) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/facturas'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    return response.statusCode == 201;
+  }
+
 }
