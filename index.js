@@ -33,6 +33,23 @@ async function closeConnection(connection) {
 // SECCIÓN DE ENDPOINTS
 // =======================================================================
 
+
+app.get('/api/test-db', async (req, res) => {
+    let connection;
+    try {
+        console.log('Intentando conectar a la base de datos...');
+        connection = await oracledb.getConnection(dbConfig);
+        console.log('¡Conexión exitosa!');
+        await connection.close();
+        res.status(200).json({ status: "success", message: "Conexión a la base de datos exitosa." });
+    } catch (err) {
+        // Si hay un error, lo enviamos en la respuesta para poder verlo
+        console.error('FALLO LA CONEXIÓN:', err);
+        res.status(500).json({ status: "error", message: "Fallo la conexión", error: err.message });
+    }
+});
+
+
 // --- Endpoint de Autenticación (Login) ---
 app.post('/api/login', async (req, res) => {
     let connection;
