@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
-import 'main.dart'; // Para EscalasScreen
+import 'main.dart'; // Contiene DashboardScreen
 
 class RegistroBarcoScreen extends StatefulWidget {
   const RegistroBarcoScreen({super.key});
@@ -16,10 +16,8 @@ class RegistroBarcoScreen extends StatefulWidget {
 class _RegistroBarcoScreenState extends State<RegistroBarcoScreen> {
   final _formKey = GlobalKey<FormState>();
   final ApiService _apiService = ApiService();
-
   final _nombreController = TextEditingController();
   final _imoController = TextEditingController();
-  
   bool _isLoading = false;
 
   void _registrarBarco() async {
@@ -27,7 +25,6 @@ class _RegistroBarcoScreenState extends State<RegistroBarcoScreen> {
       setState(() => _isLoading = true);
       
       final authService = Provider.of<AuthService>(context, listen: false);
-      // CORRECCIÓN: Usamos el nuevo getter .userData y la clave correcta 'id_usuario'
       final clienteId = authService.userData?['id_usuario']; 
 
       final barcoData = {
@@ -40,15 +37,15 @@ class _RegistroBarcoScreenState extends State<RegistroBarcoScreen> {
 
       try {
         final responseData = await _apiService.addBarco(barcoData);
-
         if (mounted && responseData != null) {
           final nuevoBarcoId = responseData['nuevoBarcoId'];
           authService.updateUserBarcoId(nuevoBarcoId);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Barco registrado con éxito'), backgroundColor: Colors.green)
           );
+          // CORRECCIÓN: Navegamos a DashboardScreen
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const EscalasScreen()),
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
           );
         } else {
            throw Exception('Fallo al registrar el barco');

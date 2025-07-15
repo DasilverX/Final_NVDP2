@@ -432,7 +432,36 @@ app.put('/api/tripulantes/:id', async (req, res) => {
     }
 });
 
+// POST: Crear un nuevo tripulante
+app.post('/api/tripulantes', async (req, res) => {
+    let connection;
+    // Extraemos los datos del cuerpo de la petición
+    const { nombre_completo, rol_abordo, pasaporte, id_barco } = req.body;
+    
+    // Validamos que los datos necesarios estén presentes
+    if (!nombre_completo || !rol_abordo || !pasaporte) {
+        return res.status(400).json({ error: "Nombre, rol y pasaporte son requeridos." });
+    }
 
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `INSERT INTO TRIPULACION (NOMBRE_COMPLETO, ROL_ABORDO, PASAPORTE, ID_BARCO) 
+                     VALUES (:nombre_completo, :rol_abordo, :pasaporte, :id_barco)`;
+        
+        await connection.execute(sql, 
+            { nombre_completo, rol_abordo, pasaporte, id_barco }, 
+            { autoCommit: true }
+        );
+        
+        res.status(201).json({ message: "Tripulante añadido con éxito." });
+
+    } catch (err) {
+        console.error("Error en POST /api/tripulantes:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
 
 // GET: Obtener todos los usuarios (sin el hash de la contraseña)
 app.get('/api/usuarios', async (req, res) => {
@@ -531,6 +560,32 @@ app.get('/api/facturas/:id/detalles', async (req, res) => {
     }
 });
 
+// PATCH: Actualizar solo el estado de una factura
+app.patch('/api/facturas/:id/status', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    const { nuevoStatus } = req.body; // Recibimos el nuevo estado desde el body
+
+    if (!nuevoStatus) {
+        return res.status(400).json({ error: "El nuevo estado es requerido." });
+    }
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `UPDATE FACTURA SET ESTADO_FACTURA = :nuevoStatus WHERE ID_FACTURA = :id`;
+        const result = await connection.execute(sql, { nuevoStatus, id }, { autoCommit: true });
+
+        if (result.rowsAffected === 0) {
+            return res.status(404).json({ message: "Factura no encontrada." });
+        }
+        res.status(200).json({ message: `Estado de la factura actualizado a ${nuevoStatus}.` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
 // GET: Obtener todos los roles
 app.get('/api/roles', async (req, res) => {
     let connection;
@@ -577,6 +632,28 @@ app.get('/api/dashboard/summary', async (req, res) => {
         await closeConnection(connection);
     }
 });
+
+
+// --- Endpoint para ANALÍTICAS ---
+app.get('/api/analytics/facturas', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `
+            SELECT ESTADO_FACTURA, COUNT(*) AS TOTAL
+            FROM FACTURA
+            GROUP BY ESTADO_FACTURA
+        `;
+        const result = await connection.execute(sql, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error en /api/analytics/facturas:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
 
 // Iniciar el Servidor
 app.listen(port, () => {

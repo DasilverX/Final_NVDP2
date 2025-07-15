@@ -6,7 +6,7 @@ class BarcoDetalleScreen extends StatefulWidget {
   // Esta variable recibirá el ID desde la pantalla anterior (gestion_barcos)
   final int barcoId;
 
-  const BarcoDetalleScreen({Key? key, required this.barcoId}) : super(key: key);
+  const BarcoDetalleScreen({super.key, required this.barcoId});
 
   @override
   _BarcoDetalleScreenState createState() => _BarcoDetalleScreenState();

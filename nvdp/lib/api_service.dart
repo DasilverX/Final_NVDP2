@@ -211,4 +211,24 @@ Future<bool> addTripulante(Map<String, dynamic> data) async {
     }
   }
 
+ Future<List<dynamic>> getFacturaAnalytics() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/analytics/facturas'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Fallo al cargar la analítica de facturas');
+    }
+  }
+
+// En lib/api_service.dart, dentro de la clase ApiService
+
+  Future<bool> updateFacturaStatus(int facturaId, String nuevoStatus) async {
+    final response = await http.patch( // Usamos PATCH porque solo actualizamos un campo
+      Uri.parse('$_baseUrl/api/facturas/$facturaId/status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'nuevoStatus': nuevoStatus}),
+    );
+    return response.statusCode == 200;
+  }
+
 }

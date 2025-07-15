@@ -1,12 +1,14 @@
+// lib/app_drawer.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
-import 'main.dart'; // Para EscalasScreen
+import 'main.dart'; // Contiene DashboardScreen
 import 'gestion_barcos.dart';
 import 'tripulantes.dart';
 import 'gestion_usuarios.dart';
-import 'map.dart'; // Tu pantalla de mapa
-import 'contabilidad_screen.dart'; // La nueva pantalla de contabilidad
+import 'map.dart';
+import 'contabilidad_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -31,10 +33,11 @@ class AppDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.home_outlined),
-            title: const Text('Inicio (Escalas)'),
+            title: const Text('Inicio (Dashboard)'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const EscalasScreen()));
+              // CORRECCIÓN: Navegamos a DashboardScreen
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
             },
           ),
           if (esAdmin) ...[
@@ -63,7 +66,6 @@ class AppDrawer extends StatelessWidget {
               },
             ),
           ],
-          // --- NUEVA OPCIÓN DE CONTABILIDAD ---
           ListTile(
             leading: const Icon(Icons.receipt_long_outlined),
             title: const Text('Contabilidad'),
