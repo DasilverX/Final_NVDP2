@@ -1,9 +1,10 @@
-import 'dart:convert';
+// lib/capitanes.dart
+
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:nvdp/login.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'auth_service.dart';
+import 'api_service.dart';
 
 class CapitanDashboardScreen extends StatefulWidget {
   final int barcoId;
@@ -20,50 +21,37 @@ class CapitanDashboardScreen extends StatefulWidget {
 }
 
 class _CapitanDashboardScreenState extends State<CapitanDashboardScreen> {
-  List _peticiones = [];
-  bool _isLoading = true;
+  final ApiService _apiService = ApiService();
+  late Future<List<dynamic>> _peticionesFuture;
 
   @override
   void initState() {
     super.initState();
-    _fetchPeticiones();
+    _peticionesFuture = _apiService.getPeticionesPorBarco(widget.barcoId);
   }
 
-  Future<void> _fetchPeticiones() async {
-    final url = 'http://localhost:3000/api/peticiones/barco/${widget.barcoId}';
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (mounted && response.statusCode == 200) {
-        setState(() {
-          _peticiones = jsonDecode(response.body);
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Fallo al cargar las peticiones');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
-      }
-    }
+  void _refreshPeticiones() {
+    setState(() {
+      _peticionesFuture = _apiService.getPeticionesPorBarco(widget.barcoId);
+    });
   }
 
-  // ***** NUEVO MÉTODO PARA MOSTRAR EL FORMULARIO *****
   void _showAddPeticionForm() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final usuarioId = authService.userData?['id_usuario'];
+
+    if (usuarioId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: No se pudo identificar al usuario.')));
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) {
-        return _AddPeticionForm(
-          usuarioId: Provider.of<AuthService>(context, listen: false).user!['usuarioId'],
-        );
-      },
+      builder: (_) => _AddPeticionForm(usuarioId: usuarioId),
     ).then((success) {
-      // Si el formulario se cerró con éxito (devuelve true), refrescamos la lista
       if (success == true) {
-        _fetchPeticiones();
+        _refreshPeticiones();
       }
     });
   }
@@ -78,44 +66,46 @@ class _CapitanDashboardScreenState extends State<CapitanDashboardScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () {
               Provider.of<AuthService>(context, listen: false).logout();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) =>  LoginScreen()),
-                (Route<dynamic> route) => false,
-              );
             },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchPeticiones,
-              child: _peticiones.isEmpty
-                  ? Center(
-                      child: Text('No hay peticiones de servicio registradas.',
-                          style: Theme.of(context).textTheme.titleMedium))
-                  : ListView.builder(
-                      itemCount: _peticiones.length,
-                      itemBuilder: (context, index) {
-                        final peticion = _peticiones[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 12.0, vertical: 6.0),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                                child: Icon(_getStatusIcon(peticion['ESTADO']))),
-                            title: Text(peticion['SERVICIOTIPO']),
-                            subtitle: Text(
-                                'Puerto: ${peticion['NOMBREPUERTO']} - Estado: ${peticion['ESTADO']}'),
-                            trailing: Text(peticion['FECHAPETICION']
-                                .toString()
-                                .substring(0, 10)),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-      // ***** EL BOTÓN FLOTANTE AHORA LLAMA AL NUEVO MÉTODO *****
+      body: RefreshIndicator(
+        onRefresh: () async => _refreshPeticiones(),
+        child: FutureBuilder<List<dynamic>>(
+          future: _peticionesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
+            final peticiones = snapshot.data ?? [];
+            if (peticiones.isEmpty) {
+              return Center(child: Text('No hay peticiones de servicio registradas.', style: Theme.of(context).textTheme.titleMedium));
+            }
+            return ListView.builder(
+              itemCount: peticiones.length,
+              itemBuilder: (context, index) {
+                final peticion = peticiones[index];
+                final date = DateTime.parse(peticion['FECHA_PETICION']);
+                final dateFormatter = DateFormat('dd/MM/yyyy');
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                  child: ListTile(
+                    leading: CircleAvatar(child: Icon(_getStatusIcon(peticion['ESTADO']))),
+                    title: Text(peticion['NOMBRE_SERVICIO']),
+                    subtitle: Text('Puerto: ${peticion['NOMBRE_PUERTO']} - Estado: ${peticion['ESTADO']}'),
+                    trailing: Text(dateFormatter.format(date)),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddPeticionForm,
         tooltip: 'Nueva Petición de Servicio',
@@ -135,18 +125,16 @@ class _CapitanDashboardScreenState extends State<CapitanDashboardScreen> {
   }
 }
 
-// ***** WIDGET INTERNO PARA EL FORMULARIO *****
 class _AddPeticionForm extends StatefulWidget {
   final int usuarioId;
-
   const _AddPeticionForm({required this.usuarioId});
-
   @override
   State<_AddPeticionForm> createState() => _AddPeticionFormState();
 }
 
 class _AddPeticionFormState extends State<_AddPeticionForm> {
   final _formKey = GlobalKey<FormState>();
+  final ApiService _apiService = ApiService();
   final _escalaIdController = TextEditingController();
   final _servicioIdController = TextEditingController();
   final _notasController = TextEditingController();
@@ -155,36 +143,25 @@ class _AddPeticionFormState extends State<_AddPeticionForm> {
   Future<void> _submitPeticion() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSaving = true);
-
-      const url = 'http://localhost:3000/api/peticiones';
       try {
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'escalaId': int.parse(_escalaIdController.text),
-            'servicioId': int.parse(_servicioIdController.text),
-            'usuarioId': widget.usuarioId,
-            'notas': _notasController.text,
-          }),
-        );
-
-        if (response.statusCode == 201) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Petición creada con éxito'),
-                backgroundColor: Colors.green));
-            Navigator.of(context).pop(true); // Cierra el formulario y devuelve 'true'
-          }
-        } else {
-          final responseBody = jsonDecode(response.body);
-          throw Exception(
-              'Error al crear petición: ${responseBody['message']}');
+        final success = await _apiService.addPeticion({
+          'escalaId': int.parse(_escalaIdController.text),
+          'servicioId': int.parse(_servicioIdController.text),
+          'usuarioId': widget.usuarioId,
+          'notas': _notasController.text,
+        });
+        if (mounted && success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Petición creada con éxito'),
+              backgroundColor: Colors.green));
+          Navigator.of(context).pop(true);
+        } else if(mounted) {
+          throw Exception('Error al crear la petición');
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+              SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
         }
       } finally {
         if (mounted) {
@@ -214,8 +191,7 @@ class _AddPeticionFormState extends State<_AddPeticionForm> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Nueva Petición de Servicio',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text('Nueva Petición de Servicio', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
             TextFormField(
               controller: _escalaIdController,

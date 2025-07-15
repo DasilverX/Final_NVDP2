@@ -1,31 +1,42 @@
+// lib/auth_service.dart
+
 import 'package:flutter/material.dart';
 
 class AuthService with ChangeNotifier {
-  Map<String, dynamic>? _user;
+  Map<String, dynamic>? _userData;
 
-  Map<String, dynamic>? get user => _user;
+  Map<String, dynamic>? get userData => _userData;
 
-  String? get userRole => _user?['user']?['ROL'];
-  
-  // Getter para obtener el ID del barco del usuario si existe
-  int? get userBarcoId => _user?['user']?['ID_BARCO'];
+  String? get userRole {
+    if (_userData == null) return null;
+    switch (_userData!['id_rol']) {
+      case 1:
+        return 'administrador';
+      case 2:
+        return 'capitan';
+      case 3:
+        return 'operador';
+      default:
+        return 'visitante';
+    }
+  }
 
-  void login(Map<String, dynamic> userData) {
-    _user = userData;
+  String? get userName => _userData?['nombre_usuario'];
+
+  void login(Map<String, dynamic> data) {
+    _userData = data;
     notifyListeners();
   }
 
   void logout() {
-    _user = null;
+    _userData = null;
     notifyListeners();
   }
 
-  // --- FUNCIÓN NUEVA Y CORREGIDA ---
-  // Esta función actualiza el mapa del usuario con el ID del nuevo barco.
+
   void updateUserBarcoId(int barcoId) {
-    if (_user != null && _user!['user'] != null) {
-      _user!['user']['ID_BARCO'] = barcoId;
-      // Notificamos a los listeners para que la UI se actualice si es necesario.
+    if (_userData != null) {
+      _userData!['id_barco'] = barcoId;
       notifyListeners();
     }
   }

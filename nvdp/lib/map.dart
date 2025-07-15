@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:http/http.dart' as http;
-import 'config.dart';
+import 'api_service.dart';
 
 class MapaScreen extends StatefulWidget {
   const MapaScreen({super.key});
@@ -13,6 +11,8 @@ class MapaScreen extends StatefulWidget {
 }
 
 class _MapaScreenState extends State<MapaScreen> {
+  // AJUSTE 1: Creamos una instancia del ApiService
+  final ApiService _apiService = ApiService();
   List<Marker> _markers = [];
   bool _isLoading = true;
 
@@ -23,37 +23,37 @@ class _MapaScreenState extends State<MapaScreen> {
   }
 
   Future<void> _fetchPuertos() async {
-    const url = '$apiBaseUrl/api/puertos';
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final List<dynamic> puertosData = jsonDecode(response.body);
-        final List<Marker> loadedMarkers = [];
-        for (var puerto in puertosData) {
+      // AJUSTE 1: Usamos la función centralizada del ApiService
+      final List<dynamic> puertosData = await _apiService.getPuertos();
+      final List<Marker> loadedMarkers = [];
+
+      for (var puerto in puertosData) {
+        // Asegurarnos que latitud y longitud no son nulos
+        if (puerto['LATITUD'] != null && puerto['LONGITUD'] != null) {
           loadedMarkers.add(
             Marker(
               point: LatLng(puerto['LATITUD'], puerto['LONGITUD']),
               width: 80,
               height: 80,
               child: Tooltip(
-                message: puerto['NOMBRE'],
+                // AJUSTE 2: Usar la clave correcta 'NOMBRE_PUERTO'
+                message: puerto['NOMBRE_PUERTO'] ?? 'Puerto sin nombre',
                 child: const Icon(Icons.location_on, color: Colors.red, size: 40),
               ),
             ),
           );
         }
-        if (mounted) {
-          setState(() {
-            _markers = loadedMarkers;
-            _isLoading = false;
-          });
-        }
-      } else {
-        throw Exception('Fallo al cargar los puertos');
+      }
+      if (mounted) {
+        setState(() {
+          _markers = loadedMarkers;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}')));
         setState(() => _isLoading = false);
       }
     }
@@ -69,8 +69,8 @@ class _MapaScreenState extends State<MapaScreen> {
           ? const Center(child: CircularProgressIndicator())
           : FlutterMap(
               options: const MapOptions(
-                initialCenter: LatLng(20, 0), 
-                initialZoom: 2.0, 
+                initialCenter: LatLng(8.9, -79.5), // Centrado en Panamá
+                initialZoom: 7.0, 
               ),
               children: [
                 TileLayer(

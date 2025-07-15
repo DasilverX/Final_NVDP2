@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'config.dart';
+import 'api_service.dart';
 
 class EditTripulanteScreen extends StatefulWidget {
+  // Este widget siempre recibirá los datos del tripulante a editar
   final Map<String, dynamic> tripulante;
 
   const EditTripulanteScreen({super.key, required this.tripulante});
@@ -14,59 +13,57 @@ class EditTripulanteScreen extends StatefulWidget {
 
 class _EditTripulanteScreenState extends State<EditTripulanteScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ApiService _apiService = ApiService();
+
   late TextEditingController _nombreController;
   late TextEditingController _rolController;
-  late TextEditingController _nacionalidadController;
-  bool _isSaving = false;
+  late TextEditingController _pasaporteController;
+  late TextEditingController _barcoIdController;
+
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _nombreController = TextEditingController(text: widget.tripulante['NOMBRE']);
-    _rolController = TextEditingController(text: widget.tripulante['ROL']);
-    _nacionalidadController = TextEditingController(text: widget.tripulante['NACIONALIDAD']);
+    // Llenamos los campos con los datos del tripulante que recibimos
+    _nombreController = TextEditingController(text: widget.tripulante['NOMBRE_COMPLETO']);
+    _rolController = TextEditingController(text: widget.tripulante['ROL_ABORDO']);
+    _pasaporteController = TextEditingController(text: widget.tripulante['PASAPORTE']);
+    _barcoIdController = TextEditingController(text: widget.tripulante['ID_BARCO']?.toString() ?? '');
   }
 
-  Future<void> _updateTripulante() async {
+  void _guardarCambios() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isSaving = true;
-      });
+      setState(() => _isLoading = true);
 
-      final tripulanteId = widget.tripulante['TRIPULACIONID'];
-      final url = '$apiBaseUrl/api/tripulantes/$tripulanteId';
-      
+      final tripulanteData = {
+        'nombre_completo': _nombreController.text,
+        'rol_abordo': _rolController.text,
+        'pasaporte': _pasaporteController.text,
+        'id_barco': int.tryParse(_barcoIdController.text),
+      };
+
       try {
-        final response = await http.put(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'nombre': _nombreController.text,
-            'rol': _rolController.text,
-            'nacionalidad': _nacionalidadController.text,
-          }),
-        );
+        final exito = await _apiService.updateTripulante(widget.tripulante['ID_TRIPULACION'], tripulanteData);
 
-        if (response.statusCode == 200) {
+        if (mounted && exito) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tripulante actualizado exitosamente'),
-              backgroundColor: Colors.green,
-            ),
+            const SnackBar(content: Text('Cambios guardados'), backgroundColor: Colors.green),
           );
-          Navigator.of(context).pop(true);
-        } else {
-          final responseBody = jsonDecode(response.body);
-          throw Exception('Error al actualizar: ${responseBody['message']}');
+          Navigator.pop(context, true); // Devuelve true para refrescar la lista
+        } else if(mounted) {
+           throw Exception('Fallo al guardar los cambios');
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-        );
+        if(mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          );
+        }
       } finally {
-        setState(() {
-          _isSaving = false;
-        });
+        if(mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
@@ -75,42 +72,53 @@ class _EditTripulanteScreenState extends State<EditTripulanteScreen> {
   void dispose() {
     _nombreController.dispose();
     _rolController.dispose();
-    _nacionalidadController.dispose();
+    _pasaporteController.dispose();
+    _barcoIdController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Editar a ${widget.tripulante['NOMBRE']}'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(title: Text('Editar Tripulante')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
                 controller: _nombreController,
                 decoration: const InputDecoration(labelText: 'Nombre Completo'),
-                validator: (value) => value == null || value.isEmpty ? 'Por favor, ingrese el nombre' : null,
+                validator: (v) => v!.isEmpty ? 'Campo requerido' : null,
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _rolController,
                 decoration: const InputDecoration(labelText: 'Rol a Bordo'),
+                validator: (v) => v!.isEmpty ? 'Campo requerido' : null,
               ),
+              const SizedBox(height: 16),
               TextFormField(
-                controller: _nacionalidadController,
-                decoration: const InputDecoration(labelText: 'Nacionalidad'),
+                controller: _pasaporteController,
+                decoration: const InputDecoration(labelText: 'Pasaporte'),
+                validator: (v) => v!.isEmpty ? 'Campo requerido' : null,
               ),
-              const SizedBox(height: 20),
-              _isSaving
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _updateTripulante,
-                      child: const Text('Actualizar Tripulante'),
-                    ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _barcoIdController,
+                decoration: const InputDecoration(labelText: 'ID del Barco Asignado'),
+                keyboardType: TextInputType.number,
+                validator: (v) => v!.isEmpty ? 'Campo requerido' : null,
+              ),
+              const SizedBox(height: 32),
+              _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ElevatedButton(
+                    onPressed: _guardarCambios,
+                    child: const Text('Guardar Cambios'),
+                  )
             ],
           ),
         ),

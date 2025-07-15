@@ -62,7 +62,8 @@ app.post('/api/login', async (req, res) => {
     try {
         connection = await oracledb.getConnection(dbConfig);
         const sql = `SELECT ID_USUARIO, NOMBRE_USUARIO, PASSWORD_HASH, ID_ROL FROM USUARIOS WHERE NOMBRE_USUARIO = :nombre_usuario`;
-        const result = await connection.execute(sql, { nombre_usuario });
+        const options = {outFormat: oracledb.OUT_FORMAT_OBJECT,};
+        const result = await connection.execute(sql, { nombre_usuario }, options);
 
         if (result.rows.length === 0) {
             return res.status(401).json({ error: "Credenciales inválidas." });
@@ -92,16 +93,62 @@ app.post('/api/login', async (req, res) => {
 });
 
 
-// --- Endpoints para BARCOS ---
-
-// GET: Obtener todos los barcos
+// GET: Obtener barcos con paginación y búsqueda
 app.get('/api/barcos', async (req, res) => {
     let connection;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = 15; // O el número de items por página que prefieras
+    const offset = (page - 1) * limit;
+    const searchTerm = req.query.search || '';
+
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const result = await connection.execute(`SELECT ID_BARCO, NOMBRE_BARCO, NUMERO_IMO, ID_TIPO_BARCO, ID_PAIS_BANDERA, ID_CLIENTE FROM BARCO ORDER BY NOMBRE_BARCO`);
-        res.json(result.rows);
+        
+        // Base de la consulta con JOINs para obtener nombres en lugar de solo IDs
+        let sql = `
+            SELECT 
+                b.ID_BARCO, b.NOMBRE_BARCO, b.NUMERO_IMO,
+                t.TIPO_BARCO,
+                p.PAIS as PAIS_BANDERA,
+                c.NOMBRE_CLIENTE
+            FROM BARCO b
+            LEFT JOIN TIPO_BARCO t ON b.ID_TIPO_BARCO = t.ID_TIPO_BARCO
+            LEFT JOIN PAIS p ON b.ID_PAIS_BANDERA = p.ID_PAIS
+            LEFT JOIN CLIENTE c ON b.ID_CLIENTE = c.ID_CLIENTE
+        `;
+        
+        const countSql = `SELECT COUNT(*) as total FROM (${sql}) `;
+        
+        // Añadir cláusula WHERE para la búsqueda
+        if (searchTerm) {
+            sql += ` WHERE LOWER(b.NOMBRE_BARCO) LIKE :searchTerm OR LOWER(b.NUMERO_IMO) LIKE :searchTerm`;
+        }
+        
+        sql += ` ORDER BY b.NOMBRE_BARCO OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
+
+        const bindParams = { 
+            offset: offset, 
+            limit: limit,
+            ...(searchTerm && { searchTerm: `%${searchTerm.toLowerCase()}%` })
+        };
+        
+        const [result, countResult] = await Promise.all([
+            connection.execute(sql, bindParams, { outFormat: oracledb.OUT_FORMAT_OBJECT }),
+            connection.execute(countSql, (searchTerm ? { searchTerm: `%${searchTerm.toLowerCase()}%` } : {}), { outFormat: oracledb.OUT_FORMAT_OBJECT })
+        ]);
+
+        const totalItems = countResult.rows[0].TOTAL;
+        const totalPages = Math.ceil(totalItems / limit);
+
+        // Devolvemos un objeto Mapa, que es lo que Flutter espera
+        res.json({
+            barcos: result.rows,
+            totalPages: totalPages,
+            currentPage: page
+        });
+
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     } finally {
         await closeConnection(connection);
@@ -114,7 +161,9 @@ app.get('/api/barcos/:id', async (req, res) => {
     const { id } = req.params;
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const result = await connection.execute(`SELECT * FROM BARCO WHERE ID_BARCO = :id`, { id });
+        const sql = `SELECT * FROM BARCO WHERE ID_BARCO = :id`;
+        const result = await connection.execute(sql, { id }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "Barco no encontrado." });
         }
@@ -126,15 +175,22 @@ app.get('/api/barcos/:id', async (req, res) => {
     }
 });
 
-// POST: Crear un nuevo barco
+// POST: Crear un nuevo barco y devolver su ID
 app.post('/api/barcos', async (req, res) => {
     let connection;
     const { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente } = req.body;
+    const binds = {
+        nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente,
+        out_id: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT }
+    };
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const sql = `INSERT INTO BARCO (NOMBRE_BARCO, NUMERO_IMO, ID_TIPO_BARCO, ID_PAIS_BANDERA, ID_CLIENTE) VALUES (:nombre_barco, :numero_imo, :id_tipo_barco, :id_pais_bandera, :id_cliente)`;
-        await connection.execute(sql, { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente }, { autoCommit: true });
-        res.status(201).json({ message: "Barco creado exitosamente." });
+        const sql = `INSERT INTO BARCO (NOMBRE_BARCO, NUMERO_IMO, ID_TIPO_BARCO, ID_PAIS_BANDERA, ID_CLIENTE) 
+                     VALUES (:nombre_barco, :numero_imo, :id_tipo_barco, :id_pais_bandera, :id_cliente)
+                     RETURNING ID_BARCO INTO :out_id`;
+        const result = await connection.execute(sql, binds, { autoCommit: true });
+        const nuevoBarcoId = result.outBinds.out_id[0];
+        res.status(201).json({ message: "Barco creado exitosamente.", nuevoBarcoId: nuevoBarcoId });
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {
@@ -142,41 +198,42 @@ app.post('/api/barcos', async (req, res) => {
     }
 });
 
-// PUT: Actualizar un barco existente por su ID
+// PUT: Actualizar un barco existente
 app.put('/api/barcos/:id', async (req, res) => {
     let connection;
     const { id } = req.params;
     const { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente } = req.body;
-
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const sql = `UPDATE BARCO 
-                     SET NOMBRE_BARCO = :nombre_barco, 
-                         NUMERO_IMO = :numero_imo, 
-                         ID_TIPO_BARCO = :id_tipo_barco, 
-                         ID_PAIS_BANDERA = :id_pais_bandera, 
-                         ID_CLIENTE = :id_cliente
-                     WHERE ID_BARCO = :id`;
-
-        const result = await connection.execute(
-            sql,
-            { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente, id },
-            { autoCommit: true }
-        );
-
+        const sql = `UPDATE BARCO SET NOMBRE_BARCO = :nombre_barco, NUMERO_IMO = :numero_imo, ID_TIPO_BARCO = :id_tipo_barco, ID_PAIS_BANDERA = :id_pais_bandera, ID_CLIENTE = :id_cliente WHERE ID_BARCO = :id`;
+        const result = await connection.execute(sql, { nombre_barco, numero_imo, id_tipo_barco, id_pais_bandera, id_cliente, id }, { autoCommit: true });
         if (result.rowsAffected === 0) {
             return res.status(404).json({ message: "Barco no encontrado para actualizar." });
         }
-
         res.status(200).json({ message: "Barco actualizado exitosamente." });
     } catch (err) {
-        console.error(err);
         res.status(500).json({ error: err.message });
     } finally {
-        if (connection) {
-            try { await connection.close(); } 
-            catch (err) { console.error(err); }
+        await closeConnection(connection);
+    }
+});
+
+// DELETE: Eliminar un barco
+app.delete('/api/barcos/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        await connection.execute(`DELETE FROM BARCO WHERE ID_BARCO = :id`, { id }, { autoCommit: true });
+        res.status(200).json({ message: "Barco eliminado." });
+    } catch (err) {
+        // Capturamos el error de Oracle para la restricción de integridad (si tiene escalas)
+        if (err.errorNum && err.errorNum === 2292) {
+            return res.status(400).json({ error: "No se puede eliminar el barco porque tiene escalas portuarias registradas." });
         }
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
     }
 });
 
@@ -213,15 +270,45 @@ app.get('/api/escalas', async (req, res) => {
 });
 
 
-// --- Endpoints para SERVICIOS ---
-
-// GET: Obtener todos los servicios disponibles
-app.get('/api/servicios', async (req, res) => {
+// GET: Obtener todas las peticiones de un barco específico
+app.get('/api/peticiones/barco/:barcoId', async (req, res) => {
     let connection;
+    const { barcoId } = req.params;
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const result = await connection.execute(`SELECT ID_SERVICIO, NOMBRE_SERVICIO, DESCRIPCION FROM SERVICIO ORDER BY NOMBRE_SERVICIO`);
+        const sql = `
+            SELECT 
+                p.ID_PETICION, p.FECHA_PETICION,
+                s.NOMBRE_SERVICIO,
+                e.ESTADO,
+                pu.NOMBRE_PUERTO
+            FROM PETICION_SERVICIO p
+            JOIN SERVICIO s ON p.ID_SERVICIO = s.ID_SERVICIO
+            JOIN ESTADO_PETICION e ON p.ID_ESTADO = e.ID_ESTADO
+            JOIN ESCALA_PORTUARIA es ON p.ID_ESCALA = es.ID_ESCALA
+            JOIN PUERTO pu ON es.ID_PUERTO = pu.ID_PUERTO
+            WHERE es.ID_BARCO = :barcoId
+            ORDER BY p.FECHA_PETICION DESC
+        `;
+        const result = await connection.execute(sql, { barcoId }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// POST: Crear una nueva petición de servicio
+app.post('/api/peticiones', async (req, res) => {
+    let connection;
+    const { escalaId, servicioId, usuarioId, notas } = req.body;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `INSERT INTO PETICION_SERVICIO (ID_ESCALA, ID_SERVICIO, ID_USUARIO_CAPITAN, ID_ESTADO, NOTAS_CAPITAN) 
+                     VALUES (:escalaId, :servicioId, :usuarioId, 1, :notas)`; // ID_ESTADO = 1 para 'Pendiente'
+        await connection.execute(sql, { escalaId, servicioId, usuarioId, notas }, { autoCommit: true });
+        res.status(201).json({ message: "Petición creada con éxito." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {
@@ -247,6 +334,203 @@ app.get('/api/escalas/:id_escala/facturas', async (req, res) => {
         await closeConnection(connection);
     }
 });
+
+
+// GET: Obtener todos los puertos para el mapa
+app.get('/api/puertos', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `SELECT ID_PUERTO, NOMBRE_PUERTO, CIUDAD, LATITUD, LONGITUD FROM PUERTO WHERE LATITUD IS NOT NULL AND LONGITUD IS NOT NULL`;
+        const options = { outFormat: oracledb.OUT_FORMAT_OBJECT };
+        const result = await connection.execute(sql, {}, options);
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error en /api/puertos:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        if (connection) {
+            try { await connection.close(); }
+            catch (err) { console.error(err); }
+        }
+    }
+});
+
+// GET: Obtener toda la tripulación con el nombre del barco
+app.get('/api/tripulantes', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        // AJUSTE: Hacemos un LEFT JOIN para obtener b.NOMBRE_BARCO
+        const sql = `
+            SELECT 
+                t.ID_TRIPULACION, 
+                t.NOMBRE_COMPLETO, 
+                t.ROL_ABORDO, 
+                t.PASAPORTE, 
+                t.ID_BARCO,
+                b.NOMBRE_BARCO 
+            FROM TRIPULACION t
+            LEFT JOIN BARCO b ON t.ID_BARCO = b.ID_BARCO
+            ORDER BY t.NOMBRE_COMPLETO
+        `;
+        const options = { outFormat: oracledb.OUT_FORMAT_OBJECT };
+        const result = await connection.execute(sql, {}, options);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// DELETE: Eliminar un tripulante por ID
+app.delete('/api/tripulantes/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `DELETE FROM TRIPULACION WHERE ID_TRIPULACION = :id`;
+        await connection.execute(sql, { id }, { autoCommit: true });
+        res.status(200).json({ message: "Tripulante eliminado exitosamente." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// PUT: Actualizar un tripulante
+app.put('/api/tripulantes/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    const { nombre_completo, rol_abordo, pasaporte, id_barco } = req.body;
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `UPDATE TRIPULACION 
+                     SET NOMBRE_COMPLETO = :nombre_completo, 
+                         ROL_ABORDO = :rol_abordo, 
+                         PASAPORTE = :pasaporte, 
+                         ID_BARCO = :id_barco
+                     WHERE ID_TRIPULACION = :id`;
+        
+        const result = await connection.execute(
+            sql,
+            { nombre_completo, rol_abordo, pasaporte, id_barco, id },
+            { autoCommit: true }
+        );
+
+        if (result.rowsAffected === 0) {
+            return res.status(404).json({ message: "Tripulante no encontrado." });
+        }
+        res.status(200).json({ message: "Tripulante actualizado exitosamente." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+
+
+// GET: Obtener todos los usuarios (sin el hash de la contraseña)
+app.get('/api/usuarios', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `SELECT ID_USUARIO, NOMBRE_USUARIO, ID_ROL FROM USUARIOS ORDER BY NOMBRE_USUARIO`;
+        const result = await connection.execute(sql, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// POST: Crear un nuevo usuario con contraseña encriptada
+app.post('/api/usuarios', async (req, res) => {
+    let connection;
+    const { nombre_usuario, password, id_rol } = req.body;
+    if (!nombre_usuario || !password || !id_rol) {
+        return res.status(400).json({ error: "Nombre, contraseña y rol son requeridos." });
+    }
+
+    try {
+        // Encriptamos la contraseña antes de guardarla
+        const salt = await bcrypt.genSalt(12);
+        const password_hash = await bcrypt.hash(password, salt);
+
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `INSERT INTO USUARIOS (NOMBRE_USUARIO, PASSWORD_HASH, ID_ROL) VALUES (:nombre_usuario, :password_hash, :id_rol)`;
+        await connection.execute(sql, { nombre_usuario, password_hash, id_rol }, { autoCommit: true });
+        
+        res.status(201).json({ message: "Usuario creado exitosamente." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// DELETE: Eliminar un usuario
+app.delete('/api/usuarios/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        await connection.execute(`DELETE FROM USUARIOS WHERE ID_USUARIO = :id`, { id }, { autoCommit: true });
+        res.status(200).json({ message: "Usuario eliminado." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+
+// GET: Obtener todas las facturas con el nombre del cliente
+app.get('/api/facturas', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `
+            SELECT 
+                f.ID_FACTURA, f.NUMERO_FACTURA, f.FECHA_EMISION, 
+                f.MONTO_TOTAL, f.ESTADO_FACTURA,
+                c.NOMBRE_CLIENTE
+            FROM FACTURA f
+            JOIN CLIENTE c ON f.ID_CLIENTE = c.ID_CLIENTE
+            ORDER BY f.FECHA_EMISION DESC
+        `;
+        const result = await connection.execute(sql, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
+// GET: Obtener todos los detalles de una factura específica
+app.get('/api/facturas/:id/detalles', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `SELECT ID_DETALLE_FACTURA, DESCRIPCION, PRECIO_UNITARIO, CANTIDAD, SUBTOTAL 
+                     FROM DETALLE_FACTURA 
+                     WHERE ID_FACTURA = :id`;
+        const result = await connection.execute(sql, { id }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
 
 
 // Iniciar el Servidor

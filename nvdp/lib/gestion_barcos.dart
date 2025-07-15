@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:nvdp/add_barco.dart';
 import 'package:provider/provider.dart';
-import 'auth_service.dart';
 import 'api_service.dart';
+import 'auth_service.dart';
+import 'add_barco.dart';
 
 class GestionBarcosScreen extends StatefulWidget {
   const GestionBarcosScreen({super.key});
@@ -35,9 +35,12 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
   }
 
   Future<void> _fetchBarcos({bool isNewSearch = false}) async {
-    if (isNewSearch) _currentPage = 1;
+    if (isNewSearch) {
+      _currentPage = 1;
+    }
     if (!mounted) return;
     setState(() => _isLoading = true);
+
     try {
       final data = await _apiService.getBarcosPaginado(page: _currentPage, search: _searchTerm);
       if (mounted) {
@@ -51,56 +54,49 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
 
-  Future<void> _deleteBarco(int id) async {
-    try {
-      // CORRECCIÓN: El método se llama deleteBarco
-      await _apiService.deleteBarco(id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Barco eliminado exitosamente'), backgroundColor: Colors.green));
-      }
-      _fetchBarcos(isNewSearch: true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red));
-      }
-    }
-  }
-
-  // El resto del archivo (diálogo de confirmación, onChanged, build, etc.) se queda igual que tu versión original,
-  // solo asegúrate de que las claves del JSON (como 'NOMBRE_BARCO') sean correctas en el ListView.builder.
-  // ...
-  // Aquí pego el resto del build con la corrección del botón de paginación
-  
-    void _showDeleteConfirmationDialog(int id, String nombre) {
+  void _deleteBarco(int id, String nombre) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmar Eliminación'),
-          content: Text(
-              '¿Estás seguro de que deseas eliminar el barco $nombre?\n\nADVERTENCIA: Esta acción solo funcionará si el barco no tiene escalas portuarias registradas.'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancelar'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Eliminar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteBarco(id);
-              },
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Eliminación'),
+        content: Text('¿Estás seguro de que deseas eliminar el barco "$nombre"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+          TextButton(
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await _apiService.deleteBarco(id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Barco eliminado'), backgroundColor: Colors.green),
+                );
+                _fetchBarcos(isNewSearch: true);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red),
+                );
+              }
+            },
+          ),
+        ],
+      ),
     );
+  }
+
+  void _navigateToForm({Map<String, dynamic>? barco}) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => AddBarcoScreen(barco: barco)),
+    );
+    if (result == true) {
+      _fetchBarcos(isNewSearch: true);
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -113,172 +109,96 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
     });
   }
 
+  void _changePage(int newPage) {
+    setState(() {
+      _currentPage = newPage;
+      _fetchBarcos();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final esAdmin = Provider.of<AuthService>(context).userRole == 'administrador';
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gestión de Barcos'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  labelText: 'Buscar por Nombre, IMO, etc.',
-                  prefixIcon: const Icon(Icons.search),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                ),
-                onChanged: _onSearchChanged,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _barcos.isEmpty
-                      ? const Center(child: Text('No se encontraron barcos.'))
-                      : RefreshIndicator(
-                          onRefresh: () => _fetchBarcos(isNewSearch: true),
-                          child: ListView.builder(
-                            itemCount: _barcos.length,
-                            itemBuilder: (context, index) {
-                              final barco = _barcos[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(
-                                    horizontal: 4.0, vertical: 6.0),
-                                child: InkWell(
-                                  onTap: esAdmin
-                                      ? () async {
-                                          final result = await Navigator.of(context)
-                                              .push<bool>(
-                                            MaterialPageRoute(
-                                              builder: (context) => AddBarcoScreen(barco : barco),
-                                            ),
-                                          );
-                                          if (result == true) {
-                                            _fetchBarcos(isNewSearch: true);
-                                          }
-                                        }
-                                      : null,
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          barco['NOMBRE_BARCO'] ?? 'Sin Nombre',
-                                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                                        ),
-                                        Text(
-                                          'IMO: ${barco['NUMERO_IMO']}',
-                                          style: Theme.of(context).textTheme.bodySmall,
-                                        ),
-                                        const Divider(height: 20),
-                                        _buildInfoRow(context, Icons.flag_outlined,
-                                            'Bandera', barco['BANDERA']),
-                                        _buildInfoRow(context, Icons.category_outlined,
-                                            'Tipo', barco['TIPO']),
-                                        _buildInfoRow(context, Icons.business_center_outlined,
-                                            'Propietario', barco['NOMBRE_CLIENTE']),
-                                        if (esAdmin)
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: IconButton(
-                                              icon: Icon(Icons.delete_outline,
-                                                  color: Colors.red[700]),
-                                              onPressed: () {
-                                                _showDeleteConfirmationDialog(
-                                                    barco['ID_BARCO'],
-                                                    barco['NOMBRE_BARCO']);
-                                              },
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-            ),
-            if (_totalPages > 1)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed: _currentPage > 1
-                          // CORRECCIÓN: Eliminada la sintaxis extraña
-                          ? () {
-                              setState(() => _currentPage--);
-                              _fetchBarcos();
-                            }
-                          : null,
-                      child: const Text('Anterior'),
-                    ),
-                    Text('Página $_currentPage de $_totalPages'),
-                    ElevatedButton(
-                      onPressed: _currentPage < _totalPages
-                          ? () {
-                              setState(() => _currentPage++);
-                              _fetchBarcos();
-                            }
-                          : null,
-                      child: const Text('Siguiente'),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-      floatingActionButton: esAdmin
-          ? FloatingActionButton(
-              child: const Icon(Icons.add),
-              onPressed: () async {
-                  final result = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(builder: (context) => AddBarcoScreen()),
-                  );
-                  if (result == true) {
-                      _fetchBarcos(isNewSearch: true);
-                  }
-              },
-            )
-          : null,
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context, IconData icon, String label, String? value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
+      appBar: AppBar(title: const Text('Gestión de Barcos')),
+      body: Column(
         children: [
-          Icon(icon, size: 16, color: Colors.grey[700]),
-          const SizedBox(width: 8),
-          Text('$label: ', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value ?? 'N/A', style: Theme.of(context).textTheme.bodyMedium)),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Buscar por Nombre o IMO',
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                suffixIcon: _searchController.text.isNotEmpty ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    _onSearchChanged('');
+                  },
+                ) : null,
+              ),
+              onChanged: _onSearchChanged,
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _barcos.isEmpty
+                    ? const Center(child: Text('No se encontraron barcos.'))
+                    : RefreshIndicator(
+                        onRefresh: () => _fetchBarcos(isNewSearch: true),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 80),
+                          itemCount: _barcos.length,
+                          itemBuilder: (context, index) {
+                            final barco = _barcos[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              child: ListTile(
+                                leading: const CircleAvatar(child: Icon(Icons.directions_boat)),
+                                title: Text(barco['NOMBRE_BARCO'] ?? 'Sin Nombre'),
+                                subtitle: Text(
+                                  'IMO: ${barco['NUMERO_IMO']}\nTipo: ${barco['TIPO_BARCO'] ?? 'N/A'}',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                                isThreeLine: true,
+                                trailing: esAdmin ? IconButton(
+                                  icon: Icon(Icons.delete_outline, color: Colors.red[700]),
+                                  onPressed: () => _deleteBarco(barco['ID_BARCO'], barco['NOMBRE_BARCO']),
+                                ) : null,
+                                onTap: esAdmin ? () => _navigateToForm(barco: barco) : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+          ),
+          if (_totalPages > 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: _currentPage > 1 ? () => _changePage(_currentPage - 1) : null,
+                    child: const Text('Anterior'),
+                  ),
+                  Text('Página $_currentPage de $_totalPages'),
+                  ElevatedButton(
+                    onPressed: _currentPage < _totalPages ? () => _changePage(_currentPage + 1) : null,
+                    child: const Text('Siguiente'),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
+      floatingActionButton: esAdmin ? FloatingActionButton(
+        onPressed: () => _navigateToForm(),
+        child: const Icon(Icons.add),
+      ) : null,
     );
   }
 }

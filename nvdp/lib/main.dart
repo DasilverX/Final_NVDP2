@@ -38,12 +38,11 @@ class NvdpaApp extends StatelessWidget {
       title: 'NVDPA',
       theme: theme,
       debugShowCheckedModeBanner: false,
-      home: AuthWrapper(),
+      home: const AuthWrapper(),
     );
   }
 }
 
-// Este Widget decide qué pantalla mostrar basado en el estado de autenticación
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -51,8 +50,8 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
 
-    // Si hay un usuario, muestra el Dashboard. Si no, muestra la pantalla de Login.
-    if (authService.user != null) {
+    // CORRECCIÓN: Usamos .userData en lugar de .user
+    if (authService.userData != null) {
       return const EscalasScreen();
     } else {
       return LoginScreen();
@@ -60,7 +59,6 @@ class AuthWrapper extends StatelessWidget {
   }
 }
 
-// Esta es tu pantalla principal o Dashboard
 class EscalasScreen extends StatefulWidget {
   const EscalasScreen({super.key});
 
@@ -86,12 +84,13 @@ class _EscalasScreenState extends State<EscalasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userDetails = Provider.of<AuthService>(context).user!['user'];
+    // CORRECCIÓN: Usamos el nuevo getter .userName para más claridad y seguridad
+    final userName = Provider.of<AuthService>(context).userName;
 
     return Scaffold(
-      drawer: const AppDrawer(), // Asegúrate que tu AppDrawer funcione correctamente
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text('Dashboard: ${userDetails?['NOMBRE_USUARIO'] ?? 'Admin'}'),
+        title: Text('Dashboard: ${userName ?? 'Usuario'}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.directions_boat),
@@ -113,7 +112,7 @@ class _EscalasScreenState extends State<EscalasScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error.toString().replaceAll("Exception: ", "")}'));
+              return Center(child: Text('Error: ${snapshot.error.toString()}'));
             }
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(child: Text('No hay escalas para mostrar.'));

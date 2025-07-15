@@ -1,11 +1,12 @@
-import 'dart:convert';
+// lib/tripulantes.dart
+
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart'; 
-import 'auth_service.dart'; 
+import 'package:provider/provider.dart';
+import 'api_service.dart';
+import 'auth_service.dart';
 import 'add_tripulante.dart';
 import 'edit_tripulante.dart';
-import 'config.dart';
+
 class TripulantesScreen extends StatefulWidget {
   const TripulantesScreen({super.key});
 
@@ -14,281 +15,158 @@ class TripulantesScreen extends StatefulWidget {
 }
 
 class _TripulantesScreenState extends State<TripulantesScreen> {
-  List _tripulantes = [];
-  bool _isLoading = true;
+  final ApiService _apiService = ApiService();
+  late Future<List<dynamic>> _tripulantesFuture;
 
   @override
   void initState() {
     super.initState();
-    _fetchTripulantes();
+    _tripulantesFuture = _apiService.getTripulantes();
   }
 
-  Future<void> _fetchTripulantes() async {
-    const url = '$apiBaseUrl/api/tripulantes';
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        setState(() {
-          _tripulantes = jsonDecode(response.body);
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Fallo al cargar los tripulantes');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
-      }
-    }
+  void _refreshData() {
+    setState(() {
+      _tripulantesFuture = _apiService.getTripulantes();
+    });
   }
 
-  Future<void> _deleteTripulante(int id) async {
-    final url = '$apiBaseUrl/api/tripulantes/$id';
-    try {
-      final response = await http.delete(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tripulante eliminado exitosamente'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-        _fetchTripulantes();
-      } else {
-        final responseBody = jsonDecode(response.body);
-        throw Exception('Error al eliminar: ${responseBody['message']}');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
-      }
-    }
-  }
-
-  void _showDeleteConfirmationDialog(int id, String nombre) {
+  void _deleteTripulante(int id, String nombre) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmar Eliminación'),
-          content: Text('¿Estás seguro de que deseas eliminar a $nombre?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancelar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Eliminar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteTripulante(id);
-              },
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Eliminación'),
+        content: Text('¿Estás seguro de que deseas eliminar a $nombre?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+          TextButton(
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await _apiService.deleteTripulante(id);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Tripulante eliminado'), backgroundColor: Colors.green));
+                _refreshData();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  // ***** MÉTODO BUILD COMPLETAMENTE ACTUALIZADO *****
+  void _navigateToForm({Map<String, dynamic>? tripulante}) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          // Decidimos a qué pantalla ir basado en si estamos editando o añadiendo
+          if (tripulante != null) {
+            return EditTripulanteScreen(tripulante: tripulante);
+          } else {
+            return const AddTripulanteScreen();
+          }
+        },
+      ),
+    );
+    if (result == true) {
+      _refreshData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 1. Obtenemos el rol del usuario desde el AuthService
-    final authService = Provider.of<AuthService>(context);
-    final esAdmin = authService.userRole == 'administrador';
+    final esAdmin = Provider.of<AuthService>(context).userRole == 'administrador';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Tripulantes'),
-        // 2. El botón de añadir solo aparece si el usuario es administrador
         actions: [
           if (esAdmin)
             IconButton(
-              icon: const Icon(Icons.add_box),
+              icon: const Icon(Icons.add),
               tooltip: 'Añadir Tripulante',
-              onPressed: () async {
-                // Suponiendo que tu clase se llama AddTripulanteScreen
-                // y el archivo es add_tripulante.dart
-                final result = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (context) => const AddTripulanteScreen(),
-                  ),
-                );
-                if (result == true) {
-                  _fetchTripulantes();
-                }
-              },
+              onPressed: () => _navigateToForm(),
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _tripulantes
-                .isEmpty // ***** NUEVA CONDICIÓN AQUÍ *****
-          ? Center(
-              // Usamos Center para que se vea bien en cualquier pantalla
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/logo.png', // Usamos el logo que ya tienes
-                    height: 100,
-                    color: Colors.grey[400], // Un color sutil
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'No hay tripulantes registrados',
-                    style: TextStyle(fontSize: 18, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 8),
-                  if (esAdmin) // Mostramos este texto solo si es admin
-                    const Text(
-                      'Usa el botón (+) para añadir el primero.',
-                      style: TextStyle(color: Colors.black45),
-                    ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              // La lista solo se muestra si no está vacía
-              onRefresh: _fetchTripulantes,
-              child: ListView.builder(
-                itemCount: _tripulantes.length,
-                itemBuilder: (context, index) {
-                  final tripulante = _tripulantes[index];
-                  final tripulanteId = tripulante['TRIPULACIONID'];
-                  final nombre = tripulante['NOMBRE'] ?? 'N/A';
-                  final rol = tripulante['ROL'] ?? 'N/A';
-                  final nombreBarco = tripulante['NOMBREBARCO'] ?? 'N/A';
+      body: RefreshIndicator(
+        onRefresh: () async => _refreshData(),
+        child: FutureBuilder<List<dynamic>>(
+          future: _tripulantesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              // Tu excelente UI para cuando no hay datos
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.people_outline, size: 80, color: Colors.grey[400]),
+                    const SizedBox(height: 24),
+                    const Text('No hay tripulantes registrados', style: TextStyle(fontSize: 18, color: Colors.black54)),
+                    const SizedBox(height: 8),
+                    if (esAdmin)
+                      const Text('Usa el botón (+) para añadir el primero.', style: TextStyle(color: Colors.black45)),
+                  ],
+                ),
+              );
+            }
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12.0,
-                      vertical: 6.0,
-                    ),
-                    child: InkWell(
-                      // Hacemos que toda la tarjeta sea "clicable" para editar
-                      onTap: esAdmin
-                          ? () async {
-                              final result = await Navigator.of(context)
-                                  .push<bool>(
-                                    MaterialPageRoute(
-                                      builder: (context) => EditTripulanteScreen(
-                                        tripulante: tripulante,
-                                      ),
-                                    ),
-                                  );
-                              if (result == true) {
-                                _fetchTripulantes();
-                              }
-                            }
-                          : null,
-                      borderRadius: BorderRadius.circular(
-                        8.0,
-                      ), // Para que el efecto de clic tenga bordes redondeados
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Fila para el nombre del tripulante
-                            Row(
+            final tripulantes = snapshot.data!;
+            return ListView.builder(
+              itemCount: tripulantes.length,
+              itemBuilder: (context, index) {
+                final tripulante = tripulantes[index];
+                // CORRECCIÓN: Usar las claves correctas del API
+                final nombre = tripulante['NOMBRE_COMPLETO'] ?? 'N/A';
+                final rol = tripulante['ROL_ABORDO'] ?? 'N/A';
+                final nombreBarco = tripulante['NOMBRE_BARCO'] ?? 'No asignado';
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                  child: InkWell(
+                    onTap: esAdmin ? () => _navigateToForm(tripulante: tripulante) : null,
+                    borderRadius: BorderRadius.circular(8.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.person_outline,
-                                  color: Colors.blueGrey,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    nombre,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                ),
+                                Text(nombre, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 8),
+                                Text(rol, style: Theme.of(context).textTheme.bodyMedium),
+                                const SizedBox(height: 4),
+                                Text("Barco: $nombreBarco", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            const Divider(),
-                            const SizedBox(height: 8),
-                            // Fila para el rol
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.work_outline,
-                                  size: 16,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  rol,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
+                          ),
+                          if (esAdmin)
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, color: Colors.red[700]),
+                              onPressed: () => _deleteTripulante(tripulante['ID_TRIPULACION'], nombre),
                             ),
-                            const SizedBox(height: 4),
-                            // Fila para el nombre del barco
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.directions_boat_outlined,
-                                  size: 16,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Barco: $nombreBarco",
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
-                            ),
-                            // Mostramos el botón de eliminar solo si es administrador
-                            if (esAdmin)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    child: Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.red[700],
-                                    ),
-                                    onPressed: () {
-                                      _showDeleteConfirmationDialog(
-                                        tripulanteId,
-                                        nombre,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }
