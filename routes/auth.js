@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+// const bcrypt = require('bcrypt'); // Ya no necesitamos bcrypt
 const db = require('../database');
 const router = express.Router();
 
@@ -21,16 +21,17 @@ router.post('/login', async (req, res) => {
 
         const user = users[0];
         
-        // Compara la contraseña enviada con el hash guardado en la BD
-        const isMatch = await bcrypt.compare(password, user.PASSWORD_HASH);
-
-        if (!isMatch) {
+        // ===================================================================
+        // ADVERTENCIA: LÓGICA DE LOGIN INSEGURA - SOLO PARA DEPURACIÓN
+        // Comparamos directamente la contraseña enviada con la guardada en la BD
+        if (password !== user.PASSWORD_HASH) { // <-- Cambio clave aquí
             return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
+        // ===================================================================
         
-        // login es exitoso
+        // Si el login es exitoso...
         res.json({
-            message: 'Login exitoso',
+            message: 'Login exitoso (Modo Inseguro)',
             user: {
                 id: user.ID_USUARIO,
                 nombre: user.NOMBRE_USUARIO,
