@@ -10,7 +10,10 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$_baseUrl/api/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'nombre_usuario': nombreUsuario, 'password': password}),
+      body: jsonEncode({
+      'nombre_usuario': nombreUsuario, 
+      'password': password,
+    }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
     return null;
