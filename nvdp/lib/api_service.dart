@@ -191,5 +191,24 @@ Future<bool> addTripulante(Map<String, dynamic> data) async {
     return response.statusCode == 201;
   }
 
+// --- Funciones para ROLES ---
+  Future<List<dynamic>> getRoles() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/roles'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Fallo al cargar los roles');
+    }
+  }
+
+  // --- Función para el Dashboard ---
+  Future<Map<String, dynamic>> getDashboardSummary() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/dashboard/summary'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Fallo al cargar el resumen del dashboard');
+    }
+  }
 
 }

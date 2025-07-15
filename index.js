@@ -531,7 +531,52 @@ app.get('/api/facturas/:id/detalles', async (req, res) => {
     }
 });
 
+// GET: Obtener todos los roles
+app.get('/api/roles', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `SELECT ID_ROL, NOMBRE_ROL FROM ROLES ORDER BY NOMBRE_ROL`;
+        const result = await connection.execute(sql, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
 
+// --- Endpoint para el DASHBOARD ---
+
+// GET: Obtener datos de resumen para el dashboard principal
+app.get('/api/dashboard/summary', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        
+        // Ejecutamos varias consultas de conteo en paralelo
+        const [barcosResult, tripulantesResult, facturasResult] = await Promise.all([
+            connection.execute(`SELECT COUNT(*) AS TOTAL FROM BARCO`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }),
+            connection.execute(`SELECT COUNT(*) AS TOTAL FROM TRIPULACION`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }),
+            connection.execute(`SELECT COUNT(*) AS TOTAL FROM FACTURA WHERE ESTADO_FACTURA = 'Pendiente'`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT })
+        ]);
+
+        // Construimos el objeto de respuesta
+        const summary = {
+            totalBarcos: barcosResult.rows[0].TOTAL,
+            totalTripulantes: tripulantesResult.rows[0].TOTAL,
+            facturasPendientes: facturasResult.rows[0].TOTAL
+        };
+
+        res.json(summary);
+
+    } catch (err) {
+        console.error("Error en /api/dashboard/summary:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
 
 // Iniciar el Servidor
 app.listen(port, () => {
