@@ -21,13 +21,9 @@ router.post('/login', async (req, res) => {
 
         const user = users[0];
         
-        // ===================================================================
-        // ADVERTENCIA: LÓGICA DE LOGIN INSEGURA - SOLO PARA DEPURACIÓN
-        // Comparamos directamente la contraseña enviada con la guardada en la BD
-        if (password !== user.PASSWORD_HASH) { // <-- Cambio clave aquí
+        if (password !== user.PASSWORD_HASH) {
             return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
-        // ===================================================================
         
         // Si el login es exitoso...
         res.json({
