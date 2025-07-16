@@ -2,6 +2,8 @@
 
 Este proyecto es un sistema de gestión integral para agencias navieras, diseñado para centralizar y optimizar las operaciones logísticas, financieras y administrativas. La aplicación web ha sido desarrollada como proyecto final para la materia de Base de Datos.
 
+Demo del app: https://youtu.be/hL4n-CU16Gg
+
 ## ✨ Características Principales
 
 - **Dashboard Interactivo:** Vista principal con resúmenes y métricas clave, incluyendo una gráfica de estado de facturas.
