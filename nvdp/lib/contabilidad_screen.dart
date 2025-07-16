@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart'; // Asegúrate de tener este import
 import 'api_service.dart';
-import 'factura_detalle.dart';
+import 'factura_detalle.dart'; 
 import 'add_factura.dart';
 
 class ContabilidadScreen extends StatefulWidget {
@@ -29,10 +30,25 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
     });
   }
 
+  void _exportarFacturas() {
+    final url = Uri.parse('${_apiService.getBaseUrl()}/api/export/facturas');
+    launchUrl(url);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Contabilidad - Facturas')),
+      appBar: AppBar(
+        title: const Text('Contabilidad - Facturas'),
+        // --- BOTÓN DE EXPORTAR AÑADIDO ---
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Exportar a CSV',
+            onPressed: _exportarFacturas,
+          ),
+        ],
+      ),
       body: FutureBuilder<List<dynamic>>(
         future: _facturasFuture,
         builder: (context, snapshot) {
@@ -50,6 +66,7 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
           return RefreshIndicator(
             onRefresh: () async => _refreshData(),
             child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 80), // Espacio para el FAB
               itemCount: facturas.length,
               itemBuilder: (context, index) {
                 final factura = facturas[index];
@@ -73,7 +90,6 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
                           fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     onTap: () async {
-                      // Navegamos al detalle y esperamos un posible resultado para refrescar
                       final result = await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
@@ -92,7 +108,6 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
           );
         },
       ),
-      // --- BOTÓN PARA AÑADIR NUEVA FACTURA ---
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push<bool>(
@@ -100,7 +115,6 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
             MaterialPageRoute(
                 builder: (context) => const AddFacturaScreen()),
           );
-          // Si volvemos del formulario y el resultado es 'true', refrescamos la lista
           if (result == true) {
             _refreshData();
           }
