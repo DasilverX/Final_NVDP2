@@ -284,4 +284,47 @@ Future<bool> addTripulante(Map<String, dynamic> data) async {
     return response.statusCode == 201;
   }
 
+  // --- Función para REPORTES ---
+  Future<List<dynamic>> getReportePagosPorCliente() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/analytics/clientes-pagos'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Fallo al cargar el reporte de clientes');
+    }
+  }
+
+  // --- Funciones para obtener listas para Dropdowns ---
+  Future<List<dynamic>> getPaises() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/paises'));
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Fallo al cargar los países');
+  }
+
+  Future<List<dynamic>> getTiposDeBarco() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/tipos-barco'));
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Fallo al cargar los tipos de barco');
+  }
+
+ Future<List<dynamic>> getFacturasPorBarco(int barcoId) async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/facturas/barco/$barcoId'));
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Fallo al cargar las facturas del barco');
+  }
+
+  Future<bool> realizarPago(int facturaId, double monto) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/api/pagos'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'id_factura': facturaId,
+        'monto_pagado': monto,
+        'id_metodo_pago': 1, // Usamos 1 (Transferencia) como default
+      }),
+    );
+    return response.statusCode == 201;
+  }
+
+
 }

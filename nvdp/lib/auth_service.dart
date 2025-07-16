@@ -8,18 +8,21 @@ class AuthService with ChangeNotifier {
 
   String? get _userRoleString {
     if (_userData == null) return null;
+    
+    // CORRECCIÓN: Usamos los IDs de tu base de datos (2, 21, 24)
     switch (_userData!['id_rol']) {
       case 1: return 'administrador';
       case 2: return 'capitan';
-      case 3: return 'operador';
+      case 21: return 'contador';
+      case 24: return 'logistica';
       default: return 'visitante';
     }
   }
 
-  // --- GETTERS MEJORADOS PARA ROLES ---
   bool get esAdmin => _userRoleString == 'administrador';
   bool get esCapitan => _userRoleString == 'capitan';
-  // Puedes añadir más getters para otros roles si los necesitas
+  bool get esContador => _userRoleString == 'contador';
+  bool get esLogistica => _userRoleString == 'logistica';
 
   String? get userName => _userData?['nombre_usuario'];
   int? get userId => _userData?['id_usuario'];

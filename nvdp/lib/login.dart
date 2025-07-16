@@ -4,8 +4,6 @@ import 'auth_service.dart';
 import 'api_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -15,19 +13,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  // Variable de estado para controlar la visibilidad
+  bool _isPasswordVisible = false;
 
   Future<void> _handleLogin() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-
     final username = _usernameController.text;
     final password = _passwordController.text;
     
     try {
       final userData = await _apiService.login(username, password);
-
       if (mounted && userData != null) {
-        // Usamos Provider para notificar al resto de la app sobre el login
         Provider.of<AuthService>(context, listen: false).login(userData);
       } else {
         throw Exception('Credenciales inválidas.');
@@ -39,7 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     }
-
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -54,36 +50,48 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Aquí podrías poner un logo
               Text('NVDPA', style: Theme.of(context).textTheme.headlineMedium),
-              SizedBox(height: 40),
+              const SizedBox(height: 40),
               TextField(
                 controller: _usernameController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Usuario',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
+              // --- CAMPO DE CONTRASEÑA MODIFICADO ---
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: !_isPasswordVisible, // Controlado por el estado
                 decoration: InputDecoration(
                   labelText: 'Contraseña',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_outline),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  // Icono para mostrar/ocultar
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      // Cambiamos el estado para actualizar la UI
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
                 ),
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
               _isLoading
-                  ? CircularProgressIndicator()
+                  ? const CircularProgressIndicator()
                   : ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 50),
                       ),
                       onPressed: _handleLogin,
-                      child: Text('Ingresar'),
+                      child: const Text('Ingresar'),
                     ),
             ],
           ),

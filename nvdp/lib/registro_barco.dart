@@ -1,10 +1,8 @@
-// lib/registro_barco.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
-import 'main.dart'; // Contiene DashboardScreen
+import 'main.dart'; 
 
 class RegistroBarcoScreen extends StatefulWidget {
   const RegistroBarcoScreen({super.key});
@@ -23,7 +21,6 @@ class _RegistroBarcoScreenState extends State<RegistroBarcoScreen> {
   void _registrarBarco() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
       final authService = Provider.of<AuthService>(context, listen: false);
       final clienteId = authService.userData?['id_usuario']; 
 
@@ -31,8 +28,8 @@ class _RegistroBarcoScreenState extends State<RegistroBarcoScreen> {
         'nombre_barco': _nombreController.text,
         'numero_imo': _imoController.text,
         'id_cliente': clienteId,
-        'id_tipo_barco': 1,
-        'id_pais_bandera': 1,
+        'id_tipo_barco': 1, // Ejemplo, debería ser un dropdown
+        'id_pais_bandera': 1, // Ejemplo
       };
 
       try {
@@ -43,7 +40,6 @@ class _RegistroBarcoScreenState extends State<RegistroBarcoScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Barco registrado con éxito'), backgroundColor: Colors.green)
           );
-          // CORRECCIÓN: Navegamos a DashboardScreen
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const DashboardScreen()),
           );
