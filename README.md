@@ -4,6 +4,9 @@ Este proyecto es un sistema de gestión integral para agencias navieras, diseña
 
 Demo del app: https://youtu.be/hL4n-CU16Gg
 
+**IMPORTANTE**
+La base de datos esta en Venezuela, por ende para poder usarla, tiene que notificarse para encenderla y conectarse.
+
 ## ✨ Características Principales
 
 - **Dashboard Interactivo:** Vista principal con resúmenes y métricas clave, incluyendo una gráfica de estado de facturas.
