@@ -24,12 +24,11 @@ class _MapaScreenState extends State<MapaScreen> {
 
   Future<void> _fetchPuertos() async {
     try {
-      // AJUSTE 1: Usamos la función centralizada del ApiService
+      // CORRECCIÓN: El nombre correcto de la función es getPuertos()
       final List<dynamic> puertosData = await _apiService.getPuertos();
       final List<Marker> loadedMarkers = [];
 
       for (var puerto in puertosData) {
-        // Asegurarnos que latitud y longitud no son nulos
         if (puerto['LATITUD'] != null && puerto['LONGITUD'] != null) {
           loadedMarkers.add(
             Marker(
@@ -37,7 +36,6 @@ class _MapaScreenState extends State<MapaScreen> {
               width: 80,
               height: 80,
               child: Tooltip(
-                // AJUSTE 2: Usar la clave correcta 'NOMBRE_PUERTO'
                 message: puerto['NOMBRE_PUERTO'] ?? 'Puerto sin nombre',
                 child: const Icon(Icons.location_on, color: Colors.red, size: 40),
               ),
@@ -53,7 +51,7 @@ class _MapaScreenState extends State<MapaScreen> {
       }
     } catch (e) {
       if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         setState(() => _isLoading = false);
       }
     }

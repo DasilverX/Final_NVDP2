@@ -59,36 +59,6 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
     }
   }
 
-  void _deleteBarco(int id, String nombre) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar Eliminación'),
-        content: Text('¿Estás seguro de que deseas eliminar el barco "$nombre"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
-          TextButton(
-            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              try {
-                await _apiService.deleteBarco(id);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Barco eliminado'), backgroundColor: Colors.green),
-                );
-                _fetchBarcos(isNewSearch: true);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   void _navigateToForm({Map<String, dynamic>? barco}) async {
     final result = await Navigator.push<bool>(
       context,
@@ -97,6 +67,32 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
     if (result == true) {
       _fetchBarcos(isNewSearch: true);
     }
+  }
+  
+  void _deleteBarco(int id, String nombre) async {
+     showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Eliminación'),
+        content: Text('¿Seguro que quieres eliminar el barco "$nombre"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+          TextButton(
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await _apiService.deleteBarco(id);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Barco eliminado'), backgroundColor: Colors.green));
+                _fetchBarcos(isNewSearch: true);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.red));
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _onSearchChanged(String query) {
@@ -118,7 +114,8 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final esAdmin = Provider.of<AuthService>(context).userData == 'administrador';
+    final esAdmin = Provider.of<AuthService>(context).esAdmin;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Gestión de Barcos')),
       body: Column(
@@ -145,11 +142,11 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _barcos.isEmpty
-                    ? const Center(child: Text('No se encontraron barcos.'))
-                    : RefreshIndicator(
-                        onRefresh: () => _fetchBarcos(isNewSearch: true),
-                        child: ListView.builder(
+                : RefreshIndicator(
+                    onRefresh: () => _fetchBarcos(isNewSearch: true),
+                    child: _barcos.isEmpty 
+                      ? const Center(child: Text('No se encontraron barcos.'))
+                      : ListView.builder(
                           padding: const EdgeInsets.only(bottom: 80),
                           itemCount: _barcos.length,
                           itemBuilder: (context, index) {
@@ -160,7 +157,7 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
                                 leading: const CircleAvatar(child: Icon(Icons.directions_boat)),
                                 title: Text(barco['NOMBRE_BARCO'] ?? 'Sin Nombre'),
                                 subtitle: Text(
-                                  'IMO: ${barco['NUMERO_IMO']}\nTipo: ${barco['TIPO_BARCO'] ?? 'N/A'}',
+                                  'IMO: ${barco['NUMERO_IMO']}\nPropietario: ${barco['NOMBRE_CLIENTE'] ?? 'N/A'}',
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
                                 isThreeLine: true,
@@ -173,7 +170,7 @@ class _GestionBarcosScreenState extends State<GestionBarcosScreen> {
                             );
                           },
                         ),
-                      ),
+                  ),
           ),
           if (_totalPages > 1)
             Padding(

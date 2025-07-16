@@ -207,24 +207,73 @@ app.get('/api/barcos', async (req, res) => {
     }
 });
 
-// GET: Obtener un barco por su ID
-app.get('/api/barcos/:id', async (req, res) => {
+// GET: Tipos de Barco (para dropdown) - NUEVO
+app.get('/api/tipos-barco', async (req, res) => {
     let connection;
-    const { id } = req.params;
     try {
         connection = await oracledb.getConnection(dbConfig);
-        const sql = `SELECT * FROM BARCO WHERE ID_BARCO = :id`;
-        const result = await connection.execute(sql, { id }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: "Barco no encontrado." });
-        }
-        res.json(result.rows[0]);
+        const result = await connection.execute(`SELECT ID_TIPO_BARCO, TIPO_BARCO FROM TIPO_BARCO ORDER BY TIPO_BARCO`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { await closeConnection(connection); }
+});
+
+
+app.get('/api/paises', async (req, res) => {
+    let connection;
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        const sql = `SELECT ID_PAIS, PAIS FROM PAIS ORDER BY PAIS`;
+        const result = await connection.execute(sql, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        res.json(result.rows);
     } catch (err) {
+        console.error("Error en /api/paises:", err);
         res.status(500).json({ error: err.message });
     } finally {
         await closeConnection(connection);
     }
+});
+
+// GET: Pagos Simulados (para gráfica) - NUEVO
+app.get('/api/analytics/pagos-simulados', (req, res) => {
+    res.json([
+      { "MES": "Ene", "MONTO": 15000 }, { "MES": "Feb", "MONTO": 22000 },
+      { "MES": "Mar", "MONTO": 18000 }, { "MES": "Abr", "MONTO": 35000 },
+      { "MES": "May", "MONTO": 28000 }, { "MES": "Jun", "MONTO": 45000 },
+    ]);
+});
+
+// GET: Obtener un barco por su ID
+app.get('/api/barcos', async (req, res) => {
+    let connection;
+    try {
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = 15;
+        const offset = (page - 1) * limit;
+        const searchTerm = req.query.search || '';
+        connection = await oracledb.getConnection(dbConfig);
+        let baseSql = `FROM BARCO b LEFT JOIN TIPO_BARCO t ON b.ID_TIPO_BARCO = t.ID_TIPO_BARCO LEFT JOIN PAIS p ON b.ID_PAIS_BANDERA = p.ID_PAIS LEFT JOIN CLIENTE c ON b.ID_CLIENTE = c.ID_CLIENTE`;
+        let whereClause = '';
+        const bindParams = { offset, limit };
+        const countBindParams = {};
+        if (searchTerm) {
+            whereClause = ` WHERE LOWER(b.NOMBRE_BARCO) LIKE :searchTerm OR LOWER(b.NUMERO_IMO) LIKE :searchTerm`;
+            bindParams.searchTerm = `%${searchTerm.toLowerCase()}%`;
+            countBindParams.searchTerm = `%${searchTerm.toLowerCase()}%`;
+        }
+        const sql = `SELECT b.ID_BARCO, b.NOMBRE_BARCO, b.NUMERO_IMO, t.TIPO_BARCO, p.PAIS as PAIS_BANDERA, c.NOMBRE_CLIENTE ${baseSql} ${whereClause} ORDER BY b.NOMBRE_BARCO OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
+        const countSql = `SELECT COUNT(*) as total ${baseSql} ${whereClause}`;
+        const [result, countResult] = await Promise.all([
+            connection.execute(sql, bindParams, { outFormat: oracledb.OUT_FORMAT_OBJECT }),
+            connection.execute(countSql, countBindParams, { outFormat: oracledb.OUT_FORMAT_OBJECT })
+        ]);
+        const totalItems = countResult.rows[0].TOTAL;
+        const totalPages = Math.ceil(totalItems / limit);
+        res.json({ barcos: result.rows, totalPages: totalPages, currentPage: page });
+    } catch (err) {
+        console.error("Error en GET /api/barcos:", err);
+        res.status(500).json({ error: err.message });
+    } finally { await closeConnection(connection); }
 });
 
 // POST: Crear un nuevo barco y devolver su ID
@@ -607,6 +656,46 @@ app.post('/api/usuarios', async (req, res) => {
     }
 });
 
+// PUT: Actualizar un usuario existente
+app.put('/api/usuarios/:id', async (req, res) => {
+    let connection;
+    const { id } = req.params;
+    const { nombre_usuario, password, id_rol } = req.body;
+
+    if (!nombre_usuario || !id_rol) {
+        return res.status(400).json({ error: "Nombre y rol son requeridos." });
+    }
+
+    try {
+        connection = await oracledb.getConnection(dbConfig);
+        let sql;
+        let binds = { id, nombre_usuario, id_rol };
+
+        // Si se proporciona una nueva contraseña, la encriptamos y la incluimos en la actualización
+        if (password) {
+            const salt = await bcrypt.genSalt(12);
+            const password_hash = await bcrypt.hash(password, salt);
+            binds.password_hash = password_hash;
+            sql = `UPDATE USUARIOS SET NOMBRE_USUARIO = :nombre_usuario, PASSWORD_HASH = :password_hash, ID_ROL = :id_rol WHERE ID_USUARIO = :id`;
+        } else {
+            // Si no hay contraseña, solo actualizamos el nombre y el rol
+            sql = `UPDATE USUARIOS SET NOMBRE_USUARIO = :nombre_usuario, ID_ROL = :id_rol WHERE ID_USUARIO = :id`;
+        }
+        
+        const result = await connection.execute(sql, binds, { autoCommit: true });
+
+        if (result.rowsAffected === 0) {
+            return res.status(404).json({ message: "Usuario no encontrado." });
+        }
+        res.status(200).json({ message: "Usuario actualizado exitosamente." });
+    } catch (err) {
+        console.error("Error en PUT /api/usuarios/:id:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        await closeConnection(connection);
+    }
+});
+
 // DELETE: Eliminar un usuario
 app.delete('/api/usuarios/:id', async (req, res) => {
     let connection;
@@ -766,31 +855,33 @@ app.get('/api/dashboard/summary', async (req, res) => {
     let connection;
     try {
         connection = await oracledb.getConnection(dbConfig);
-        
-        // Ejecutamos varias consultas de conteo en paralelo
         const [barcosResult, tripulantesResult, facturasResult] = await Promise.all([
             connection.execute(`SELECT COUNT(*) AS TOTAL FROM BARCO`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }),
             connection.execute(`SELECT COUNT(*) AS TOTAL FROM TRIPULACION`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT }),
             connection.execute(`SELECT COUNT(*) AS TOTAL FROM FACTURA WHERE ESTADO_FACTURA = 'Pendiente'`, {}, { outFormat: oracledb.OUT_FORMAT_OBJECT })
         ]);
-
-        // Construimos el objeto de respuesta
         const summary = {
-            totalBarcos: barcosResult.rows[0].TOTAL,
-            totalTripulantes: tripulantesResult.rows[0].TOTAL,
-            facturasPendientes: facturasResult.rows[0].TOTAL
+            TOTALBARCOS: barcosResult.rows[0].TOTAL,
+            TOTALTRIPULANTES: tripulantesResult.rows[0].TOTAL,
+            FACTURASPENDIENTES: facturasResult.rows[0].TOTAL
         };
-
         res.json(summary);
-
-    } catch (err) {
-        console.error("Error en /api/dashboard/summary:", err);
-        res.status(500).json({ error: err.message });
-    } finally {
-        await closeConnection(connection);
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
+    finally { await closeConnection(connection); }
 });
 
+// GET: Devuelve datos simulados para la gráfica de pagos mensuales
+app.get('/api/analytics/pagos-simulados', (req, res) => {
+  const data = [
+    { "MES": "Ene", "MONTO": 15000 },
+    { "MES": "Feb", "MONTO": 22000 },
+    { "MES": "Mar", "MONTO": 18000 },
+    { "MES": "Abr", "MONTO": 35000 },
+    { "MES": "May", "MONTO": 28000 },
+    { "MES": "Jun", "MONTO": 45000 },
+  ];
+  res.json(data);
+});
 
 // --- Endpoint para ANALÍTICAS ---
 app.get('/api/analytics/facturas', async (req, res) => {
@@ -934,7 +1025,6 @@ app.get('/api/analytics/ia-recomendacion', async (req, res) => {
     res.json({ recomendacion: recomendacion });
 });
 
-// Añade este endpoint en una nueva sección de EXPORTACIÓN
 // --- Endpoints para EXPORTACIÓN ---
 app.get('/api/export/facturas', async (req, res) => {
     let connection;

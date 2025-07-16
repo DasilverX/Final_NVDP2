@@ -1,10 +1,6 @@
-// lib/app_drawer.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
-
-// Importa todas tus pantallas
 import 'main.dart'; 
 import 'gestion_barcos.dart';
 import 'tripulantes.dart';
@@ -12,8 +8,6 @@ import 'gestion_usuarios.dart';
 import 'map.dart';
 import 'contabilidad_screen.dart';
 import 'reporte_clientes.dart';
-import 'add_documento.dart';
-import 'capitan_facturas.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -36,23 +30,17 @@ class AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-
-          // --- Común para todos ---
           ListTile(
             leading: const Icon(Icons.home_outlined),
             title: const Text('Inicio (Dashboard)'),
             onTap: () => _navigate(context, const DashboardScreen(), replace: true),
           ),
-
-          // --- Sección de Logística y Admin ---
           if (authService.esAdmin || authService.esLogistica)
             ListTile(
               leading: const Icon(Icons.map_outlined),
               title: const Text('Mapa de Puertos'),
               onTap: () => _navigate(context, const MapaScreen()),
             ),
-
-          // --- Sección de Contabilidad y Admin ---
           if (authService.esAdmin || authService.esContador) ...[
             const Divider(),
             _buildSectionTitle(context, 'Finanzas'),
@@ -67,21 +55,6 @@ class AppDrawer extends StatelessWidget {
               onTap: () => _navigate(context, const ReporteClientesScreen()),
             ),
           ],
-          
-          // --- Sección solo para Capitán ---
-          if (authService.esCapitan)
-            ListTile(
-              leading: const Icon(Icons.payment_outlined),
-              title: const Text('Mis Facturas y Pagos'),
-              onTap: () {
-                final barcoId = authService.userData?['id_barco'];
-                if (barcoId != null) {
-                  _navigate(context, CapitanFacturasScreen(barcoId: barcoId));
-                }
-              },
-            ),
-
-          // --- Sección solo para Administradores ---
           if (authService.esAdmin) ...[
             const Divider(),
             _buildSectionTitle(context, 'Administración'),
@@ -100,13 +73,7 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Gestión de Usuarios'),
               onTap: () => _navigate(context, const GestionUsuariosScreen()),
             ),
-            ListTile(
-              leading: const Icon(Icons.file_upload_outlined),
-              title: const Text('Añadir Documento'),
-              onTap: () => _navigate(context, const AddDocumentoScreen()),
-            ),
           ],
-          
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),
@@ -121,7 +88,6 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // Helper para la navegación, ahora es un método privado de la clase
   void _navigate(BuildContext context, Widget screen, {bool replace = false}) {
     Navigator.of(context).pop();
     if (replace) {
@@ -131,7 +97,6 @@ class AppDrawer extends StatelessWidget {
     }
   }
 
-  // Helper para los títulos de sección
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),

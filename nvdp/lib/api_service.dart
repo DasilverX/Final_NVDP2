@@ -135,6 +135,15 @@ class ApiService {
     if (response.statusCode != 200) throw Exception('Fallo al eliminar el usuario');
   }
 
+  Future<bool> updateUsuario(int id, Map<String, dynamic> userData) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/api/usuarios/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(userData),
+    );
+    return response.statusCode == 200;
+  }
+
   // =======================================================================
   // --- OPERACIONES (Facturas, Pagos, etc.) ---
   // =======================================================================
@@ -143,6 +152,13 @@ class ApiService {
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Fallo al cargar las facturas');
   }
+
+  Future<List<dynamic>> getPagosSimulados() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/analytics/pagos-simulados'));
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Fallo al cargar datos simulados');
+  }
+
 
   Future<List<dynamic>> getFacturasPorBarco(int barcoId) async {
     final response = await http.get(Uri.parse('$_baseUrl/api/facturas/barco/$barcoId'));
@@ -207,4 +223,16 @@ class ApiService {
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Fallo al cargar los roles');
   }
+
+  Future<List<dynamic>> getPuertos() async {
+    final response = await http.get(Uri.parse('$_baseUrl/api/puertos'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Fallo al cargar los puertos');
+    }
+  }
+
+  
+
 }
