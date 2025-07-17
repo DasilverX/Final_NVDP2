@@ -18,7 +18,7 @@ app.use(express.json());
 const dbConfig = {
     user: "NVDPA_USER",
     password: "nvdpa1",
-    connectString: "2.tcp.ngrok.io:10267/XEPDB1" 
+    connectString: "8.tcp.ngrok.io:11206/XEPDB1" 
 };
 
 // Función auxiliar para cerrar la conexión de forma segura
@@ -70,13 +70,6 @@ async function generarFacturaPDF(facturaInfo, detalles) {
 async function setupEmailTransporter() {
     // Genera una cuenta de prueba en Ethereal
     let testAccount = await nodemailer.createTestAccount();
-    console.log(`
-    *************************************************
-    Para ver los correos de prueba, usa estas credenciales en Ethereal:
-    Usuario: ${testAccount.user}
-    Contraseña: ${testAccount.pass}
-    *************************************************
-    `);
 
     // Crea el objeto transportador usando el SMTP de Ethereal
     return nodemailer.createTransport({
