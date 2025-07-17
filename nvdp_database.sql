@@ -1,7 +1,5 @@
 -- =======================================================================
--- SCRIPT MAESTRO NVDPA v2.1 (FINAL) PARA ORACLE
-
-
+-- SCRIPT MAESTRO NVDPA v2.1 (FINAL)
 
 -- =======================================================================
 -- Parte 1: Creación de Tablas de Catálogo
@@ -116,4 +114,4 @@ MERGE INTO USUARIOS u USING (SELECT 'cpt.jones' AS N, '$2a$12$1XnjX7I9TeuELFvgD/
 
 COMMIT;
 
-SELECT 'Script v2.1 (Final) ejecutado exitosamente. La base de datos ha sido reestructurada.' AS ESTATUS FROM DUAL;
+SELECT 'Script v2.1 (Final) ejecutado exitosamente. La base de datos ha sido estructurada.' AS ESTATUS FROM DUAL;
